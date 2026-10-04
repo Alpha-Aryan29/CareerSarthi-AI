@@ -1,0 +1,6 @@
+[
+  { "code": "below_10k", "label_en": "Below ₹10,000/month", "label_hi": "₹10,000/माह से कम", "sort_order": 1 },
+  { "code": "10k_25k", "label_en": "₹10,000 – ₹25,000/month", "label_hi": "₹10,000 – ₹25,000/माह", "sort_order": 2 },
+  { "code": "25k_50k", "label_en": "₹25,000 – ₹50,000/month", "label_hi": "₹25,000 – ₹50,000/माह", "sort_order": 3 },
+  { "code": "above_50k", "label_en": "Above ₹50,000/month", "label_hi": "₹50,000/माह से अधिक", "sort_order": 4 }
+]

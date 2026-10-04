@@ -1,0 +1,66 @@
+{
+  "app_name": "CareerSarthi AI",
+  "welcome": "Welcome",
+  "language_select": "Choose Language",
+  "btn_listen": "Listen",
+  "btn_talk_person": "Talk to a person",
+  "btn_continue": "Continue",
+  "btn_submit": "Submit",
+  "btn_not_now": "Not now",
+  "btn_i_agree": "I agree",
+  
+  "mode_title": "Who is here?",
+  "mode_learner": "Learner only",
+  "mode_parent": "Parent only",
+  "mode_both": "Both together",
+  "mode_recommend": "Recommended",
+  
+  "consent_title": "Your Privacy",
+  "consent_text": "We ask a few questions to give you the right information. We do not share your answers with training centres. You can ask us to delete your data at any time. If the learner is under 18, a parent or guardian must agree.",
+  
+  "location_title": "Where are you?",
+  "location_state": "Select State",
+  "location_district": "Select District",
+  
+  "profile_learner_title": "Tell us about you",
+  "profile_education_title": "Highest education",
+  "profile_age_title": "Age",
+  "profile_interest_title": "What work sounds interesting?",
+  
+  "profile_parent_title": "Tell us about your concerns",
+  "profile_concern_title": "What worries you about vocational training?",
+  "profile_income_title": "Household income (optional)",
+  "profile_income_desc": "This helps us show the right support. You can skip.",
+  
+  "summary_title": "Where you stand",
+  "summary_both_want": "You both want...",
+  "summary_learner_wants": "Learner is thinking about...",
+  "summary_parent_wants": "Parent is thinking about...",
+  "summary_btn_talk": "Let's talk about this",
+  
+  "chat_placeholder": "Type or speak here...",
+  "chat_engine_fallback": "I don't have that specific data, but I can connect you with someone who does.",
+  
+  "card_pilot_label": "Pilot data (demonstration)",
+  "card_pilot_warning": "Demonstration data, not real results",
+  "card_earnings": "Earnings per month",
+  "card_placement": "Placement Rate",
+  "card_source": "Source",
+  "card_sample": "Sample size",
+  "card_see_path": "See the career path",
+  
+  "escalation_title": "Talk to a person",
+  "escalation_desc": "A counsellor will call you back. We will share a summary so you won't need to repeat yourself.",
+  "escalation_phone": "Phone number",
+  "escalation_time": "Preferred time",
+  "escalation_morning": "Morning",
+  "escalation_afternoon": "Afternoon",
+  "escalation_evening": "Evening",
+  "escalation_success": "Request sent. A counsellor will contact you soon.",
+  
+  "sentiment_start_q": "How do you feel about vocational training right now?",
+  "sentiment_end_q": "How do you feel now?",
+  
+  "counsellor_view": "Staff view (demo)",
+  "dashboard_demo_banner": "Demo data — not real results"
+}

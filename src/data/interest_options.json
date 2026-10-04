@@ -1,0 +1,7 @@
+[
+  { "code": "electrical", "label_en": "Electrical", "label_hi": "इलेक्ट्रिकल", "icon": "zap", "sort_order": 1 },
+  { "code": "mechanical", "label_en": "Machines & Mechanical", "label_hi": "मशीन और मैकेनिकल", "icon": "wrench", "sort_order": 2 },
+  { "code": "computers", "label_en": "Computers & IT", "label_hi": "कंप्यूटर और IT", "icon": "monitor", "sort_order": 3 },
+  { "code": "healthcare", "label_en": "Health Care", "label_hi": "स्वास्थ्य सेवा", "icon": "heart-pulse", "sort_order": 4 },
+  { "code": "beauty_wellness", "label_en": "Beauty & Wellness", "label_hi": "ब्यूटी और वेलनेस", "icon": "sparkles", "sort_order": 5 }
+]

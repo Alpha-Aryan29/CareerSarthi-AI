@@ -1,0 +1,11 @@
+[
+  { "code": "earning_potential", "label_en": "Earning potential", "label_hi": "कमाई की संभावना", "is_sensitive": false, "sort_order": 1, "icon": "indian-rupee" },
+  { "code": "job_security", "label_en": "Job security", "label_hi": "नौकरी की सुरक्षा", "is_sensitive": false, "sort_order": 2, "icon": "shield-check" },
+  { "code": "social_status", "label_en": "Respect / Social standing", "label_hi": "सम्मान / सामाजिक प्रतिष्ठा", "is_sensitive": false, "sort_order": 3, "icon": "award" },
+  { "code": "growth_further_education", "label_en": "Growth & further education", "label_hi": "विकास और आगे की पढ़ाई", "is_sensitive": false, "sort_order": 4, "icon": "trending-up" },
+  { "code": "safety", "label_en": "Safety", "label_hi": "सुरक्षा", "is_sensitive": true, "sort_order": 5, "icon": "hard-hat" },
+  { "code": "distance_travel", "label_en": "Distance / Travel", "label_hi": "दूरी / यात्रा", "is_sensitive": false, "sort_order": 6, "icon": "map-pin" },
+  { "code": "cost", "label_en": "Cost of training", "label_hi": "प्रशिक्षण की लागत", "is_sensitive": false, "sort_order": 7, "icon": "wallet" },
+  { "code": "only_for_failures", "label_en": "\"Only for those who failed\"", "label_hi": "\"सिर्फ उनके लिए जो फेल हो गए\"", "is_sensitive": false, "sort_order": 8, "icon": "message-circle-question" },
+  { "code": "other", "label_en": "Something else", "label_hi": "कुछ और", "is_sensitive": false, "sort_order": 9, "icon": "plus-circle" }
+]

@@ -1,0 +1,46 @@
+[
+  {
+    "id": "trade-001",
+    "code": "electrician",
+    "name_en": "Electrician",
+    "name_hi": "इलेक्ट्रीशियन",
+    "sector": "Electrical",
+    "entry_nsqf_level": 4,
+    "description_en": "Install, maintain and repair electrical wiring and equipment in homes, factories and offices.",
+    "description_hi": "घरों, कारखानों और कार्यालयों में विद्युत वायरिंग और उपकरणों की स्थापना, रखरखाव और मरम्मत।",
+    "is_active": true
+  },
+  {
+    "id": "trade-002",
+    "code": "fitter",
+    "name_en": "Fitter",
+    "name_hi": "फिटर",
+    "sector": "Mechanical",
+    "entry_nsqf_level": 4,
+    "description_en": "Assemble, fit and maintain metal parts and mechanical equipment in manufacturing units.",
+    "description_hi": "विनिर्माण इकाइयों में धातु के पुर्जों और यांत्रिक उपकरणों को जोड़ना, फिट करना और रखरखाव करना।",
+    "is_active": true
+  },
+  {
+    "id": "trade-003",
+    "code": "copa",
+    "name_en": "COPA (Computer Operator & Programming Assistant)",
+    "name_hi": "COPA (कंप्यूटर ऑपरेटर और प्रोग्रामिंग सहायक)",
+    "sector": "IT",
+    "entry_nsqf_level": 4,
+    "description_en": "Operate computers, manage data and assist with basic programming and office applications.",
+    "description_hi": "कंप्यूटर संचालित करना, डेटा प्रबंधन और बुनियादी प्रोग्रामिंग और कार्यालय अनुप्रयोगों में सहायता।",
+    "is_active": true
+  },
+  {
+    "id": "trade-004",
+    "code": "health_sanitary_inspector",
+    "name_en": "Health Sanitary Inspector",
+    "name_hi": "स्वास्थ्य स्वच्छता निरीक्षक",
+    "sector": "Healthcare",
+    "entry_nsqf_level": 4,
+    "description_en": "Inspect public health and sanitation conditions, enforce hygiene standards and support disease prevention.",
+    "description_hi": "सार्वजनिक स्वास्थ्य और स्वच्छता स्थितियों का निरीक्षण, स्वच्छता मानकों को लागू करना और रोग रोकथाम में सहायता।",
+    "is_active": true
+  }
+]

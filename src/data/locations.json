@@ -1,0 +1,14 @@
+[
+  { "id": "loc-rj", "level": "state", "parent_id": null, "state_code": "RJ", "name_en": "Rajasthan", "name_hi": "राजस्थान" },
+  { "id": "loc-rj-jaipur", "level": "district", "parent_id": "loc-rj", "state_code": "RJ", "name_en": "Jaipur", "name_hi": "जयपुर", "setting": "urban" },
+
+  { "id": "loc-mh", "level": "state", "parent_id": null, "state_code": "MH", "name_en": "Maharashtra", "name_hi": "महाराष्ट्र" },
+  { "id": "loc-mh-mumbai", "level": "district", "parent_id": "loc-mh", "state_code": "MH", "name_en": "Mumbai", "name_hi": "मुंबई", "setting": "urban" },
+  { "id": "loc-mh-pune", "level": "district", "parent_id": "loc-mh", "state_code": "MH", "name_en": "Pune", "name_hi": "पुणे", "setting": "urban" },
+  { "id": "loc-mh-nagpur", "level": "district", "parent_id": "loc-mh", "state_code": "MH", "name_en": "Nagpur", "name_hi": "नागपुर", "setting": "semi_urban" },
+  { "id": "loc-mh-nashik", "level": "district", "parent_id": "loc-mh", "state_code": "MH", "name_en": "Nashik", "name_hi": "नाशिक", "setting": "semi_urban" },
+  { "id": "loc-mh-gadchiroli", "level": "district", "parent_id": "loc-mh", "state_code": "MH", "name_en": "Gadchiroli", "name_hi": "गड़चिरोली", "setting": "rural" },
+
+  { "id": "loc-up", "level": "state", "parent_id": null, "state_code": "UP", "name_en": "Uttar Pradesh", "name_hi": "उत्तर प्रदेश" },
+  { "id": "loc-up-lucknow", "level": "district", "parent_id": "loc-up", "state_code": "UP", "name_en": "Lucknow", "name_hi": "लखनऊ", "setting": "urban" }
+]

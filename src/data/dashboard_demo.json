@@ -1,0 +1,13 @@
+{
+  "demo_label": "Demonstration data — not real results",
+  "concerns_by_district": [
+    { "district": "Jaipur", "earning_potential": 42, "job_security": 28, "social_status": 35, "safety": 15, "cost": 22 },
+    { "district": "Jodhpur", "earning_potential": 38, "job_security": 31, "social_status": 40, "safety": 20, "cost": 18 },
+    { "district": "Udaipur", "earning_potential": 35, "job_security": 25, "social_status": 30, "safety": 22, "cost": 25 }
+  ],
+  "sentiment_before_after": [
+    { "district": "Jaipur", "before": 2.1, "after": 3.8 },
+    { "district": "Jodhpur", "before": 1.9, "after": 3.5 },
+    { "district": "Udaipur", "before": 2.3, "after": 3.9 }
+  ]
+}

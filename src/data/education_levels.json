@@ -1,0 +1,6 @@
+[
+  { "code": "8th_pass", "label_en": "8th Pass", "label_hi": "8वीं पास", "sort_order": 1 },
+  { "code": "10th_pass", "label_en": "10th Pass", "label_hi": "10वीं पास", "sort_order": 2 },
+  { "code": "12th_pass", "label_en": "12th Pass", "label_hi": "12वीं पास", "sort_order": 3 },
+  { "code": "graduate", "label_en": "Graduate", "label_hi": "स्नातक", "sort_order": 4 }
+]
