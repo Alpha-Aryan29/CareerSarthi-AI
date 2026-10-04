@@ -1,57 +1,95 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import TopBar from './TopBar';
-import { Home, MessageSquare, Compass, HelpCircle } from 'lucide-react';
+import { BarChart3, Compass, Headphones, Home, Menu, MessageSquare, ShieldCheck, UserRound } from 'lucide-react';
 
 const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
+  const isDashboardRoute = ['/dashboard', '/reports'].includes(location.pathname);
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
 
-  const isStaffRoute = location.pathname === '/counsellor' || location.pathname === '/dashboard';
-  const showBottomNav = !isStaffRoute && location.pathname !== '/language' && location.pathname !== '/consent';
+  const familyItems = [
+    { label: 'Home', href: '/', icon: Home, matches: (path: string) => path === '/' },
+    { label: 'Counsel', href: '/chat', icon: MessageSquare, matches: (path: string) => ['/chat', '/sentiment-start', '/sentiment-end'].includes(path) },
+    { label: 'Explore', href: '/explore', icon: Compass, matches: (path: string) => ['/explore', '/compare-trades', '/compare-cities', '/earnings-calculator'].includes(path) || path.startsWith('/trade/') },
+    { label: 'Help', href: '/escalation', icon: Headphones, matches: (path: string) => ['/escalation', '/settings', '/thanks'].includes(path) },
+  ];
+  const staffItems = [
+    { label: 'Counsellor', href: '/counsellor', icon: UserRound, matches: (path: string) => ['/counsellor', '/cases', '/escalations'].includes(path) },
+    { label: 'Admin Dashboard', href: '/dashboard', icon: BarChart3, matches: (path: string) => ['/dashboard', '/reports'].includes(path) },
+  ];
 
   return (
-    <div className="app-container">
-      <TopBar />
-      <main style={{ flex: 1, paddingBottom: showBottomNav ? '80px' : '32px' }}>
-        {children}
-      </main>
+    <div className={`app-container platform-shell ${isDashboardRoute ? 'dashboard-app-shell' : ''}`}>
+      <button
+        type="button"
+        className="shell-mobile-nav-toggle"
+        aria-expanded={isMobileNavOpen}
+        onClick={() => setIsMobileNavOpen((isOpen) => !isOpen)}
+      >
+        <Menu size={18} />
+        <span>{isMobileNavOpen ? 'Close navigation' : 'Navigation'}</span>
+      </button>
+      <aside className={`sidebar-nav ${!isMobileNavOpen ? 'mobile-nav-collapsed' : ''}`}>
+        <div className="brand-block">
+          <div className="brand-mark"><ShieldCheck size={18} /></div>
+          <div>
+            <div className="brand-title">CareerSarthi</div>
+            <div className="brand-subtitle">AI Counselling + Support</div>
+          </div>
+        </div>
 
-      {showBottomNav && (
-        <nav style={{
-          position: 'fixed',
-          bottom: 0,
-          left: '50%',
-          transform: 'translateX(-50%)',
-          width: '100%',
-          maxWidth: '640px',
-          height: '72px',
-          backgroundColor: 'var(--color-surface)',
-          borderTop: '1px solid var(--color-border)',
-          display: 'flex',
-          justifyContent: 'space-around',
-          alignItems: 'center',
-          boxShadow: '0 -2px 10px rgba(0,0,0,0.05)',
-          zIndex: 50
-        }}>
-          <button onClick={() => navigate('/mode')} style={{ background: 'none', border: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', color: 'var(--color-text-muted)' }}>
-            <Home size={24} />
-            <span style={{ fontSize: '12px', marginTop: '4px' }}>Home</span>
-          </button>
-          <button onClick={() => navigate('/chat')} style={{ background: 'none', border: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', color: location.pathname.includes('/chat') ? 'var(--color-primary)' : 'var(--color-text-muted)' }}>
-            <MessageSquare size={24} />
-            <span style={{ fontSize: '12px', marginTop: '4px' }}>Counsel</span>
-          </button>
-          <button onClick={() => navigate('/explore')} style={{ background: 'none', border: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', color: location.pathname.includes('/explore') || location.pathname.includes('/trade/') || location.pathname.includes('/compare-trades') || location.pathname.includes('/earnings-calculator') ? 'var(--color-primary)' : 'var(--color-text-muted)' }}>
-            <Compass size={24} />
-            <span style={{ fontSize: '12px', marginTop: '4px' }}>Explore</span>
-          </button>
-          <button onClick={() => navigate('/settings')} style={{ background: 'none', border: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', color: location.pathname === '/settings' ? 'var(--color-primary)' : 'var(--color-text-muted)' }}>
-            <HelpCircle size={24} />
-            <span style={{ fontSize: '12px', marginTop: '4px' }}>Help</span>
-          </button>
+        <nav className="sidebar-menu" aria-label="Main navigation">
+          <div className="sidebar-section">
+            {familyItems.map(({ label, href, icon: Icon, matches }) => (
+              <button
+                key={label}
+                type="button"
+                className={`nav-item ${matches(location.pathname) ? 'active' : ''}`}
+                aria-current={matches(location.pathname) ? 'page' : undefined}
+                onClick={() => {
+                  navigate(href);
+                  setIsMobileNavOpen(false);
+                }}
+              >
+                <Icon size={18} />
+                <span>{label}</span>
+              </button>
+            ))}
+          </div>
+
+          <div className="sidebar-section staff-navigation">
+            <div className="sidebar-section-label">Staff</div>
+            {staffItems.map(({ label, href, icon: Icon, matches }) => (
+              <button
+                key={label}
+                type="button"
+                className={`nav-item ${matches(location.pathname) ? 'active' : ''}`}
+                aria-current={matches(location.pathname) ? 'page' : undefined}
+                onClick={() => {
+                  navigate(href);
+                  setIsMobileNavOpen(false);
+                }}
+              >
+                <Icon size={18} />
+                <span>{label}</span>
+              </button>
+            ))}
+          </div>
         </nav>
-      )}
+
+        <div className="sidebar-card">
+          <div className="sidebar-card-label">Trust</div>
+          <div className="sidebar-card-title">AI-assisted, Human-supported</div>
+          <p>Verified information + Human guidance</p>
+        </div>
+      </aside>
+
+      <div className="platform-main">
+        <TopBar />
+        <main className="platform-content">{children}</main>
+      </div>
     </div>
   );
 };

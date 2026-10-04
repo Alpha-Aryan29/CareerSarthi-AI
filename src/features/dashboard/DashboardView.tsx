@@ -1,235 +1,227 @@
-import React, { useMemo, useState } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import dashboardData from '../../data/dashboard_demo.json';
+import React, { useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
+import { Activity, ArrowRight, Bot, GaugeCircle, ShieldCheck, TrendingUp, Users } from 'lucide-react';
+import { getConcernCounts, getDistrictInsightRows, getStatusCounts, readEscalations } from '../../lib/escalations';
 
-const concernKeys = ['earning_potential', 'job_security', 'social_status', 'safety', 'cost'];
-
-const resistanceWeights = {
-  earning_potential: 0.2,
-  job_security: 0.25,
-  social_status: 0.15,
-  safety: 0.3,
-  cost: 0.1,
-};
-
-const demoRecords = [
-  {
-    state: 'Maharashtra',
-    district: 'Mumbai',
-    trade: 'Electrician',
-    concerns: { earning_potential: 42, job_security: 28, social_status: 35, safety: 15, cost: 22 },
-    before: 2.1,
-    after: 3.8,
-    escalations: 6,
-  },
-  {
-    state: 'Maharashtra',
-    district: 'Gadchiroli',
-    trade: 'Electrician',
-    concerns: { earning_potential: 38, job_security: 31, social_status: 40, safety: 48, cost: 18 },
-    before: 1.8,
-    after: 2.9,
-    escalations: 9,
-  },
-  {
-    state: 'Rajasthan',
-    district: 'Jaipur',
-    trade: 'COPA',
-    concerns: { earning_potential: 35, job_security: 25, social_status: 30, safety: 18, cost: 24 },
-    before: 2.3,
-    after: 3.7,
-    escalations: 5,
-  },
-  {
-    state: 'Uttar Pradesh',
-    district: 'Lucknow',
-    trade: 'Fitter',
-    concerns: { earning_potential: 39, job_security: 27, social_status: 34, safety: 22, cost: 28 },
-    before: 2.4,
-    after: 3.5,
-    escalations: 4,
-  },
-];
+const concernColors = ['#0F766E', '#1D4ED8', '#D97706', '#DC2626', '#6B7280'];
 
 const DashboardView: React.FC = () => {
-  const [selectedState, setSelectedState] = useState('All states');
-  const [selectedDistrict, setSelectedDistrict] = useState('All districts');
-  const [selectedTrade, setSelectedTrade] = useState('All trades');
+  const navigate = useNavigate();
+  const cases = readEscalations();
 
-  const states = ['All states', ...Array.from(new Set(demoRecords.map((record) => record.state)))];
-  const districts = ['All districts', ...Array.from(new Set(demoRecords.filter((record) => selectedState === 'All states' || record.state === selectedState).map((record) => record.district)))];
-  const trades = ['All trades', ...Array.from(new Set(demoRecords.map((record) => record.trade)))];
+  const statusCounts = getStatusCounts(cases);
+  const districtInsights = getDistrictInsightRows(cases);
+  const concernChartData = getConcernCounts(cases);
 
-  const filteredRecords = useMemo(() => {
-    return demoRecords.filter((record) => {
-      const stateMatch = selectedState === 'All states' || record.state === selectedState;
-      const districtMatch = selectedDistrict === 'All districts' || record.district === selectedDistrict;
-      const tradeMatch = selectedTrade === 'All trades' || record.trade === selectedTrade;
-      return stateMatch && districtMatch && tradeMatch;
-    });
-  }, [selectedState, selectedDistrict, selectedTrade]);
-
-  const chartData = filteredRecords.length > 0 ? filteredRecords.map((record) => ({
-    district: record.district,
-    ...record.concerns,
-  })) : dashboardData.concerns_by_district;
-
-  const totalEscalations = filteredRecords.reduce((sum, record) => sum + record.escalations, 0);
-  const avgBefore = filteredRecords.length > 0 ? filteredRecords.reduce((sum, record) => sum + record.before, 0) / filteredRecords.length : 0;
-  const avgAfter = filteredRecords.length > 0 ? filteredRecords.reduce((sum, record) => sum + record.after, 0) / filteredRecords.length : 0;
-
-  const highestConcern = useMemo(() => {
-    if (filteredRecords.length === 0) return null;
-    const districtTotals = filteredRecords.map((record) => ({
-      district: record.district,
-      total: Object.values(record.concerns).reduce((sum, value) => sum + value, 0),
-      highestKey: Object.entries(record.concerns).sort((a, b) => b[1] - a[1])[0][0],
-    }));
-    return districtTotals.sort((a, b) => b.total - a.total)[0];
-  }, [filteredRecords]);
+  const avgBefore = cases.length ? Number((cases.reduce((sum, item) => sum + item.sentimentBefore, 0) / cases.length).toFixed(1)) : 0;
+  const avgAfter = cases.length ? Number((cases.reduce((sum, item) => sum + item.sentimentAfter, 0) / cases.length).toFixed(1)) : 0;
+  const resolutionRate = cases.length ? Math.round((statusCounts.resolved / cases.length) * 100) : 0;
+  const activeEscalations = statusCounts.open + statusCounts.claimed + statusCounts.inCall;
 
   const resistanceIndex = useMemo(() => {
-    if (filteredRecords.length === 0) return 0;
-    const totals = filteredRecords.reduce((acc, record) => {
-      concernKeys.forEach((key) => {
-        acc[key] = (acc[key] || 0) + (record.concerns[key as keyof typeof record.concerns] || 0);
-      });
-      return acc;
-    }, {} as Record<string, number>);
+    const highestDistrict = districtInsights.sort((a, b) => b.resistance - a.resistance)[0];
+    return highestDistrict ? highestDistrict.resistance : 0;
+  }, [districtInsights]);
 
-    const totalConcern = Object.values(totals).reduce((sum, val) => sum + val, 0) || 1;
-    const weightedConcernShare = Object.entries(totals).reduce((sum, [key, value]) => sum + ((value / totalConcern) * (resistanceWeights[key as keyof typeof resistanceWeights] || 0)), 0);
-    const negativeSentimentShare = (1 - (avgAfter / 5)) * 100;
-    const escalationRate = (totalEscalations / Math.max(filteredRecords.length, 1)) * 10;
-    return Math.min(100, Math.round((weightedConcernShare * 100) + negativeSentimentShare + escalationRate));
-  }, [filteredRecords, totalEscalations, avgAfter]);
+  const gaugeStyle = {
+    background: `conic-gradient(#0F766E 0 ${Math.min(100, resistanceIndex)}%, #E5E7EB ${Math.min(100, resistanceIndex)}% 100%)`,
+  };
+
+  const districtChartData = districtInsights.map((district) => ({
+    district: district.district,
+    resistance: district.resistance,
+  }));
+
+  const sentimentChartData = districtInsights.map((district) => ({
+    district: district.district,
+    before: district.avgBefore,
+    after: district.avgAfter,
+  }));
+
+  const aiInsights = [
+    {
+      title: 'Safety watchlist',
+      detail: 'Gadchiroli shows the highest resistance and the most safety-related concern. Focus on travel and workplace reassurance.',
+      action: '/counsellor?district=Gadchiroli&concern=safety',
+    },
+    {
+      title: 'Cost response',
+      detail: 'Reinforce earnings baselines and affordability for families concerned about long-term return.',
+      action: '/counsellor?concern=cost',
+    },
+    {
+      title: 'High priority queue',
+      detail: 'High priority escalations need prompt human follow-up within the next callback window.',
+      action: '/counsellor?priority=high',
+    },
+  ];
+
+  const kpis = [
+    { label: 'Families Counselled', value: String(cases.length), icon: Users, accent: 'teal', action: '/counsellor?status=all' },
+    { label: 'Active Escalations', value: String(activeEscalations), icon: Activity, accent: 'amber', action: '/counsellor?status=open' },
+    { label: 'Avg Sentiment Before / After', value: `${avgBefore} / ${avgAfter}`, icon: TrendingUp, accent: 'blue', action: '/' },
+    { label: 'Resolution Rate', value: `${resolutionRate}%`, icon: ShieldCheck, accent: 'green', action: '/counsellor?status=resolved' },
+    { label: 'Resistance Index', value: `${resistanceIndex}`, icon: GaugeCircle, accent: 'red', action: '/counsellor?district=Gadchiroli' },
+  ];
 
   return (
-    <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '32px 16px' }}>
-      <div style={{ backgroundColor: '#FEF3C7', color: '#92400E', padding: '12px 16px', borderRadius: '10px', fontWeight: 700, marginBottom: '24px' }}>
-        Demo data
+    <div className="page-shell dashboard-shell">
+      <div className="dashboard-heading">
+        <div>
+          <div className="eyebrow">Operations Overview</div>
+          <h1>AI counselling platform</h1>
+          <p>Escalations, family concerns, and counselling outcomes across the platform.</p>
+        </div>
+        <div className="trust-pill">AI-assisted, Human-supported</div>
       </div>
 
-      <h1 style={{ marginBottom: '24px' }}>Admin Dashboard</h1>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', marginBottom: '20px' }}>
-        <div>
-          <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>State</label>
-          <select value={selectedState} onChange={(e) => { setSelectedState(e.target.value); setSelectedDistrict('All districts'); }} style={{ width: '100%', height: '46px', borderRadius: '8px', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
-            {states.map((state) => <option key={state} value={state}>{state}</option>)}
-          </select>
-        </div>
-        <div>
-          <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>District</label>
-          <select value={selectedDistrict} onChange={(e) => setSelectedDistrict(e.target.value)} style={{ width: '100%', height: '46px', borderRadius: '8px', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
-            {districts.map((district) => <option key={district} value={district}>{district}</option>)}
-          </select>
-        </div>
-        <div>
-          <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>Trade</label>
-          <select value={selectedTrade} onChange={(e) => setSelectedTrade(e.target.value)} style={{ width: '100%', height: '46px', borderRadius: '8px', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
-            {trades.map((trade) => <option key={trade} value={trade}>{trade}</option>)}
-          </select>
-        </div>
+      <div className="kpi-grid dashboard-kpi-grid">
+        {kpis.map(({ label, value, icon: Icon, accent, action }) => (
+          <button key={label} type="button" className="metric-card" style={{ borderTop: `4px solid var(--${accent}-500)` }} onClick={() => navigate(action)}>
+            <div className="metric-topline">
+              <div className={`metric-icon ${accent}`}><Icon size={18} /></div>
+              <span className="metric-label">{label}</span>
+            </div>
+            <div className="metric-value">{value}</div>
+            <div className="metric-link">
+              View details <ArrowRight size={16} />
+            </div>
+          </button>
+        ))}
       </div>
 
-      {filteredRecords.length === 0 ? (
-        <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: '12px', padding: '24px', marginBottom: '24px' }}>
-          Not enough data for the selected filters.
+      <section className="panel">
+        <div className="panel-head">
+          <h2>Concerns by Category</h2>
+          <button type="button" className="text-button" onClick={() => navigate('/counsellor?concern=safety')}>Safety concern</button>
         </div>
-      ) : (
-        <>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '14px', marginBottom: '24px' }}>
-            <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: '12px', padding: '18px' }}>
-              <div style={{ color: 'var(--color-text-muted)', fontSize: '14px' }}>Escalation count</div>
-              <div style={{ fontSize: '28px', fontWeight: 700, marginTop: '8px' }}>{totalEscalations}</div>
-            </div>
-            <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: '12px', padding: '18px' }}>
-              <div style={{ color: 'var(--color-text-muted)', fontSize: '14px' }}>Avg before</div>
-              <div style={{ fontSize: '28px', fontWeight: 700, marginTop: '8px' }}>{avgBefore.toFixed(1)}</div>
-            </div>
-            <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: '12px', padding: '18px' }}>
-              <div style={{ color: 'var(--color-text-muted)', fontSize: '14px' }}>Avg after</div>
-              <div style={{ fontSize: '28px', fontWeight: 700, marginTop: '8px' }}>{avgAfter.toFixed(1)}</div>
-            </div>
-            <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: '12px', padding: '18px' }}>
-              <div style={{ color: 'var(--color-text-muted)', fontSize: '14px' }}>Resistance Index</div>
-              <div style={{ fontSize: '28px', fontWeight: 700, marginTop: '8px' }}>{resistanceIndex}</div>
-            </div>
-          </div>
 
-          <div style={{ backgroundColor: 'var(--color-surface)', padding: '24px', borderRadius: '12px', border: '1px solid var(--color-border)', marginBottom: '24px' }}>
-            <h2 style={{ marginBottom: '16px' }}>Concerns by Category</h2>
-            <div style={{ height: '300px' }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData} margin={{ top: 20, right: 20, left: 0, bottom: 10 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="district" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  {concernKeys.map((key, index) => (
-                    <Bar key={key} dataKey={key} name={key.replace('_', ' ')} fill={['#0F766E', '#B45309', '#1D4ED8', '#B91C1C', '#6B7280'][index]} />
-                  ))}
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', gap: '20px', marginBottom: '24px' }}>
-            <div style={{ backgroundColor: 'var(--color-surface)', padding: '24px', borderRadius: '12px', border: '1px solid var(--color-border)' }}>
-              <h2 style={{ marginBottom: '16px' }}>District concern grid</h2>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '10px' }}>
-                {filteredRecords.map((record) => (
-                  <div key={`${record.state}-${record.district}`} style={{ border: '1px solid var(--color-border)', borderRadius: '10px', padding: '12px', backgroundColor: '#F9FAFB' }}>
-                    <div style={{ fontWeight: 700, marginBottom: '8px' }}>{record.district}</div>
-                    {Object.entries(record.concerns).map(([key, value]) => (
-                      <div key={key} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '4px' }}>
-                        <span>{key.replace('_', ' ')}</span>
-                        <span style={{ color: '#0F172A', fontWeight: 600 }}>{value}</span>
-                      </div>
-                    ))}
-                  </div>
+        <div className="chart-wrap">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={concernChartData} margin={{ top: 10, right: 12, left: 0, bottom: 12 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" vertical={false} />
+              <XAxis dataKey="name" tickLine={false} axisLine={false} />
+              <YAxis allowDecimals={false} tickLine={false} axisLine={false} />
+              <Tooltip />
+              <Bar dataKey="value" radius={[8, 8, 0, 0]}>
+                {concernChartData.map((entry, index) => (
+                  <Cell key={entry.name} fill={concernColors[index]} />
                 ))}
-              </div>
-            </div>
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </section>
 
-            <div style={{ backgroundColor: 'var(--color-surface)', padding: '24px', borderRadius: '12px', border: '1px solid var(--color-border)' }}>
-              <h2 style={{ marginBottom: '16px' }}>Resistance Index formula</h2>
-              <div style={{ color: 'var(--color-text-muted)', lineHeight: 1.8 }}>
-                Weighted concern share + negative sentiment share + escalation rate, using weights: <strong>{JSON.stringify(resistanceWeights)}</strong>.
+      <section className="panel">
+        <div className="panel-head">
+          <h2>District Concern Grid</h2>
+          <button type="button" className="text-button" onClick={() => navigate('/counsellor?status=open')}>Open cases</button>
+        </div>
+
+        <div className="district-concern-grid">
+          {districtInsights.map((district) => (
+            <button
+              key={district.district}
+              type="button"
+              className="district-concern-card"
+              onClick={() => navigate(`/counsellor?district=${encodeURIComponent(district.district)}`)}
+            >
+              <div className="district-concern-head">
+                <div>
+                  <strong>{district.district}</strong>
+                  <span>{district.state}</span>
+                </div>
+                <span className={`table-tag ${district.resistance > 70 ? 'high' : district.resistance > 50 ? 'medium' : 'low'}`}>
+                  {district.resistance > 70 ? 'High' : district.resistance > 50 ? 'Medium' : 'Low'}
+                </span>
               </div>
-              <div style={{ marginTop: '16px', padding: '12px', backgroundColor: '#F3F4F6', borderRadius: '10px' }}>
-                <div style={{ fontWeight: 700, marginBottom: '8px' }}>Recommendations</div>
-                {highestConcern ? (
-                  <div>
-                    Safety concerns are highest in <strong>{highestConcern.district}</strong>. Focus on safety messaging, travel support, and counselor follow-up.
-                  </div>
-                ) : (
-                  <div>Not enough data.</div>
-                )}
+              <div className="district-concern-primary">Primary concern: <strong>{district.dominantConcern}</strong></div>
+              <div className="district-concern-metrics">
+                <span><small>Cases</small><strong>{district.cases}</strong></span>
+                <span><small>Before</small><strong>{district.avgBefore}</strong></span>
+                <span><small>After</small><strong>{district.avgAfter}</strong></span>
+                <span><small>Resistance</small><strong>{district.resistance}</strong></span>
               </div>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="panel">
+        <div className="panel-head">
+          <h2>Resistance by District</h2>
+          <button type="button" className="text-button" onClick={() => navigate('/counsellor?district=Gadchiroli')}>Gadchiroli view</button>
+        </div>
+        <div className="chart-wrap">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={districtChartData} margin={{ top: 10, right: 12, left: 0, bottom: 12 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" vertical={false} />
+              <XAxis dataKey="district" tickLine={false} axisLine={false} />
+              <YAxis domain={[0, 100]} tickLine={false} axisLine={false} />
+              <Tooltip />
+              <Bar dataKey="resistance" fill="#0F766E" radius={[8, 8, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </section>
+
+      <section className="panel">
+        <div className="panel-head">
+          <h2>Resistance Index</h2>
+          <button type="button" className="text-button" onClick={() => navigate('/counsellor?district=Gadchiroli')}>View cases</button>
+        </div>
+        <div className="gauge-wrap">
+          <div className="gauge-ring" style={gaugeStyle}>
+            <div className="gauge-inner">
+              <div className="gauge-value">{resistanceIndex}</div>
+              <div className="gauge-label">/100</div>
             </div>
           </div>
-
-          <div style={{ backgroundColor: 'var(--color-surface)', padding: '24px', borderRadius: '12px', border: '1px solid var(--color-border)' }}>
-            <h2 style={{ marginBottom: '24px' }}>Sentiment before vs after</h2>
-            <div style={{ height: '300px' }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={filteredRecords.map((record) => ({ district: record.district, before: record.before, after: record.after }))} margin={{ top: 20, right: 20, left: 0, bottom: 10 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="district" />
-                  <YAxis domain={[1, 5]} ticks={[1, 2, 3, 4, 5]} />
-                  <Tooltip />
-                  <Legend />
-                  <Bar dataKey="before" name="Before" fill="#D6D3D1" />
-                  <Bar dataKey="after" name="After" fill="#15803D" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+          <div className="gauge-copy">
+            <strong>What this means</strong>
+            <p>Higher scores show more family resistance due to cost, safety, income, or social trust concerns. The platform routes these families to a human counsellor for a faster callback.</p>
           </div>
-        </>
-      )}
+        </div>
+      </section>
+
+      <section className="panel">
+        <div className="panel-head">
+          <h2>Recommendations</h2>
+        </div>
+        <div className="insight-stack">
+          {aiInsights.map((insight) => (
+            <button key={insight.title} type="button" className="insight-item" onClick={() => navigate(insight.action)}>
+              <div className="insight-icon"><Bot size={16} /></div>
+              <div>
+                <div className="insight-title">{insight.title}</div>
+                <div className="insight-detail">{insight.detail}</div>
+              </div>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="panel">
+        <div className="panel-head">
+          <h2>Sentiment Before vs After</h2>
+          <button type="button" className="text-button" onClick={() => navigate('/counsellor?status=claimed')}>Track follow-up</button>
+        </div>
+        <div className="chart-wrap">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={sentimentChartData} margin={{ top: 10, right: 12, left: 0, bottom: 12 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" vertical={false} />
+              <XAxis dataKey="district" tickLine={false} axisLine={false} />
+              <YAxis domain={[1, 5]} tickLine={false} axisLine={false} />
+              <Tooltip />
+              <Legend />
+              <Bar dataKey="before" fill="#D6D3D1" radius={[8, 8, 0, 0]} />
+              <Bar dataKey="after" fill="#15803D" radius={[8, 8, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </section>
     </div>
   );
 };

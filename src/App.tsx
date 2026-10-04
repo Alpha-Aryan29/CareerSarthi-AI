@@ -5,6 +5,7 @@ import LanguageScreen from './features/onboarding/LanguageScreen';
 import ConsentScreen from './features/onboarding/ConsentScreen';
 import ModeScreen from './features/onboarding/ModeScreen';
 import LocationScreen from './features/onboarding/LocationScreen';
+import HomeScreen from './features/home/HomeScreen';
 import LearnerProfileScreen from './features/profile/LearnerProfileScreen';
 import ParentProfileScreen from './features/profile/ParentProfileScreen';
 import AgreementScreen from './features/summary/AgreementScreen';
@@ -27,7 +28,8 @@ function App() {
       <BrowserRouter>
         <Layout>
           <Routes>
-            <Route path="/" element={<Navigate to="/language" replace />} />
+            <Route path="/" element={<HomeScreen />} />
+            <Route path="/dashboard" element={<DashboardView />} />
             <Route path="/language" element={<LanguageScreen />} />
             <Route path="/consent" element={<ConsentScreen />} />
             <Route path="/mode" element={<ModeScreen />} />
@@ -58,9 +60,12 @@ function App() {
               </div>
             } />
             
-            {/* Staff routes */}
+            {/* Staff routes reuse the shared dashboard and escalation queue. */}
             <Route path="/counsellor" element={<CounsellorView />} />
-            <Route path="/dashboard" element={<DashboardView />} />
+            <Route path="/cases" element={<CounsellorView />} />
+            <Route path="/escalations" element={<CounsellorView />} />
+            <Route path="/reports" element={<DashboardView />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Layout>
       </BrowserRouter>

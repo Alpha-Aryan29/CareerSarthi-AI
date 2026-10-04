@@ -1,167 +1,247 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { CheckCheck, CircleAlert, HeadphonesIcon, UserRound } from 'lucide-react';
 import Button from '../../components/ui/Button';
+import { getCaseFilters, getStatusCounts, readEscalations, writeEscalations, type EscalationCase } from '../../lib/escalations';
 
-interface EscalationCase {
-  id: string;
-  phone: string;
-  time: string;
-  status: 'open' | 'claimed' | 'resolved' | 'unreachable';
-  timestamp: string;
-  priority: 'High' | 'Medium' | 'Low';
-  triggerReason: string;
-  summary: string;
-  district?: string;
-  state?: string;
-  trade?: string;
-}
-
-const demoSeedCases: EscalationCase[] = [
-  {
-    id: 'seed-1',
-    phone: '9876543210',
-    time: 'Evening',
-    status: 'open',
-    timestamp: '2026-10-05T09:00:00.000Z',
-    priority: 'High',
-    triggerReason: 'Safety concern',
-    summary: 'Parent is worried about travel distance and workshop safety before enrolling in Electrician training.',
-    district: 'Gadchiroli',
-    state: 'Maharashtra',
-    trade: 'Electrician'
-  },
-  {
-    id: 'seed-2',
-    phone: '9123456780',
-    time: 'Morning',
-    status: 'claimed',
-    timestamp: '2026-10-04T15:30:00.000Z',
-    priority: 'Medium',
-    triggerReason: 'Cost question',
-    summary: 'Learner asked for a clearer comparison between course cost and likely earnings in the COPA pathway.',
-    district: 'Lucknow',
-    state: 'Uttar Pradesh',
-    trade: 'COPA'
-  },
-  {
-    id: 'seed-3',
-    phone: '9988776655',
-    time: 'Afternoon',
-    status: 'resolved',
-    timestamp: '2026-10-03T11:15:00.000Z',
-    priority: 'Low',
-    triggerReason: 'Further education route',
-    summary: 'Family wanted to understand diploma and lateral degree paths after a skills course.',
-    district: 'Jaipur',
-    state: 'Rajasthan',
-    trade: 'Fitter'
-  }
+const tabs = [
+  { key: 'all', label: 'All' },
+  { key: 'open', label: 'Open' },
+  { key: 'high', label: 'High Priority' },
+  { key: 'claimed', label: 'Claimed' },
+  { key: 'resolved', label: 'Resolved' },
+  { key: 'unreachable', label: 'Unreachable' },
 ];
 
 const CounsellorView: React.FC = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [cases, setCases] = useState<EscalationCase[]>([]);
+  const [activeTab, setActiveTab] = useState('all');
+  const [filters, setFilters] = useState({
+    status: 'all',
+    priority: 'all',
+    district: 'all',
+    trade: 'all',
+    concern: 'all',
+  });
 
   useEffect(() => {
-    const storedRaw = localStorage.getItem('escalations');
-    const stored: EscalationCase[] = storedRaw ? JSON.parse(storedRaw) : [];
-    const combined = stored.length > 0 ? stored : demoSeedCases;
-    setCases([...combined].reverse());
-    if (!storedRaw) {
-      localStorage.setItem('escalations', JSON.stringify(demoSeedCases));
-    }
+    const nextCases = readEscalations();
+    setCases(nextCases);
   }, []);
 
+  useEffect(() => {
+    const nextFilters = {
+      status: searchParams.get('status') || 'all',
+      priority: searchParams.get('priority')
+        ? `${searchParams.get('priority')!.charAt(0).toUpperCase()}${searchParams.get('priority')!.slice(1).toLowerCase()}`
+        : 'all',
+      district: searchParams.get('district') || 'all',
+      trade: searchParams.get('trade') || 'all',
+      concern: searchParams.get('concern') || 'all',
+    };
+
+    setFilters(nextFilters);
+
+    if (searchParams.get('priority')?.toLowerCase() === 'high') {
+      setActiveTab('high');
+    } else if (searchParams.get('status')) {
+      setActiveTab(searchParams.get('status') || 'all');
+    } else {
+      setActiveTab('all');
+    }
+  }, [searchParams]);
+
+  const statusCounts = getStatusCounts(cases);
+  const visibleCases = useMemo(() => getCaseFilters(cases, filters), [cases, filters]);
+
   const updateCase = (id: string, updates: Partial<EscalationCase>) => {
-    const updated = cases.map((item) => (item.id === id ? { ...item, ...updates } : item));
-    setCases(updated.reverse());
-    localStorage.setItem('escalations', JSON.stringify(updated.reverse()));
+    const next = cases.map((item) => (item.id === id ? { ...item, ...updates } : item));
+    setCases(next);
+    writeEscalations(next);
   };
 
-  const claimCase = (id: string) => updateCase(id, { status: 'claimed' });
-  const closeCase = (id: string, status: 'resolved' | 'unreachable') => updateCase(id, { status });
+  const sankey = [
+    { label: 'Open Cases', value: statusCounts.open, icon: HeadphonesIcon },
+    { label: 'High Priority', value: statusCounts.highPriority, icon: CircleAlert },
+    { label: 'Claimed', value: statusCounts.claimed, icon: UserRound },
+    { label: 'Resolved Today', value: statusCounts.resolved, icon: CheckCheck },
+  ];
+
+  const applyFilter = (field: string, value: string) => {
+    const next = { ...filters, [field]: value };
+    setFilters(next);
+
+    const params = new URLSearchParams();
+    if (next.status && next.status !== 'all') params.set('status', next.status);
+    if (next.priority && next.priority !== 'all') params.set('priority', next.priority);
+    if (next.district && next.district !== 'all') params.set('district', next.district);
+    if (next.trade && next.trade !== 'all') params.set('trade', next.trade);
+    if (next.concern && next.concern !== 'all') params.set('concern', next.concern);
+    setSearchParams(params);
+  };
+
+  const clearFilters = () => {
+    const defaults = { status: 'all', priority: 'all', district: 'all', trade: 'all', concern: 'all' };
+    setFilters(defaults);
+    setSearchParams({});
+  };
 
   return (
-    <div style={{ maxWidth: '900px', margin: '0 auto', padding: '32px 16px' }}>
-      <div style={{ backgroundColor: '#FEF3C7', color: '#92400E', padding: '12px 16px', borderRadius: '10px', fontWeight: 700, marginBottom: '20px' }}>
-        Demo data
+    <div className="page-shell counsellor-shell">
+      <div className="page-header-row">
+        <div>
+          <div className="eyebrow">Counsellor workspace</div>
+          <h1>Case queue</h1>
+        </div>
+        <div className="trust-pill">Verified information + Human guidance</div>
       </div>
-      <h1 style={{ marginBottom: '24px' }}>Staff View: Callback Queue</h1>
 
-      {cases.length === 0 ? (
-        <p style={{ color: 'var(--color-text-muted)' }}>No requests in the queue.</p>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          {cases.map((caseItem) => (
-            <div key={caseItem.id} style={{
-              backgroundColor: 'var(--color-surface)',
-              padding: '22px',
-              borderRadius: '12px',
-              border: '1px solid var(--color-border)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '12px'
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+      <div className="kpi-grid compact-grid">
+        {sankey.map(({ label, value, icon: Icon }) => (
+          <div key={label} className="metric-card mini-card">
+            <div className="metric-topline">
+              <div className="metric-icon teal"><Icon size={18} /></div>
+              <span className="metric-label">{label}</span>
+            </div>
+            <div className="metric-value">{value}</div>
+          </div>
+        ))}
+      </div>
+
+      <section className="panel">
+        <div className="panel-head">
+          <h2>Case filters</h2>
+          <button type="button" className="text-button" onClick={clearFilters}>Reset</button>
+        </div>
+
+        <div className="filter-grid">
+          <select value={filters.priority} onChange={(e) => applyFilter('priority', e.target.value)}>
+            <option value="all">All priorities</option>
+            <option value="High">High</option>
+            <option value="Medium">Medium</option>
+            <option value="Low">Low</option>
+          </select>
+          <select value={filters.district} onChange={(e) => applyFilter('district', e.target.value)}>
+            <option value="all">All districts</option>
+            <option value="Mumbai">Mumbai</option>
+            <option value="Gadchiroli">Gadchiroli</option>
+            <option value="Jaipur">Jaipur</option>
+            <option value="Lucknow">Lucknow</option>
+          </select>
+          <select value={filters.trade} onChange={(e) => applyFilter('trade', e.target.value)}>
+            <option value="all">All trades</option>
+            <option value="Electrician">Electrician</option>
+            <option value="COPA">COPA</option>
+            <option value="Fitter">Fitter</option>
+          </select>
+          <select value={filters.concern} onChange={(e) => applyFilter('concern', e.target.value)}>
+            <option value="all">All concerns</option>
+            <option value="earning potential">earning potential</option>
+            <option value="job security">job security</option>
+            <option value="social status">social status</option>
+            <option value="safety">safety</option>
+            <option value="cost">cost</option>
+          </select>
+          <select value={filters.status} onChange={(e) => applyFilter('status', e.target.value)}>
+            <option value="all">All statuses</option>
+            <option value="open">Open</option>
+            <option value="claimed">Claimed</option>
+            <option value="in_call">In Call</option>
+            <option value="resolved">Resolved</option>
+            <option value="unreachable">Unreachable</option>
+          </select>
+        </div>
+
+        <div className="tab-row">
+          {tabs.map((tab) => {
+            const isActive = activeTab === tab.key;
+            return (
+              <button
+                key={tab.key}
+                type="button"
+                className={`tab-button ${isActive ? 'active' : ''}`}
+                onClick={() => {
+                  setActiveTab(tab.key);
+                  if (tab.key === 'all') {
+                    setFilters((prev) => ({ ...prev, status: 'all', priority: 'all' }));
+                    setSearchParams({});
+                    return;
+                  }
+
+                  if (tab.key === 'high') {
+                    applyFilter('priority', 'High');
+                    return;
+                  }
+
+                  applyFilter('status', tab.key);
+                }}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
+      <div className="case-list">
+        {visibleCases.length === 0 ? (
+          <div className="empty-state">No matching cases for this filter set.</div>
+        ) : (
+          visibleCases.map((caseItem) => (
+            <article key={caseItem.id} className="case-card">
+              <div className="case-top-row">
                 <div>
-                  <div style={{ fontSize: '12px', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                    {caseItem.priority} priority
-                  </div>
-                  <h3 style={{ margin: '6px 0 0' }}>Phone: {caseItem.status === 'claimed' || caseItem.status === 'resolved' ? caseItem.phone : '**********'}</h3>
+                  <div className="case-priority">{caseItem.priority} priority</div>
+                  <h3>{caseItem.name ? caseItem.name : 'Family callback'} <span>• {caseItem.phone}</span></h3>
                 </div>
-                <span style={{
-                  backgroundColor: caseItem.status === 'open' ? '#F0FDF4' : caseItem.status === 'claimed' ? '#FEF3C7' : caseItem.status === 'resolved' ? '#DBEAFE' : '#FEE2E2',
-                  color: caseItem.status === 'open' ? '#065F46' : caseItem.status === 'claimed' ? '#92400E' : caseItem.status === 'resolved' ? '#1D4ED8' : '#991B1B',
-                  padding: '6px 10px',
-                  borderRadius: '999px',
-                  fontSize: '12px',
-                  fontWeight: 700,
-                  textTransform: 'uppercase'
-                }}>
-                  {caseItem.status}
-                </span>
+                <span className={`status-pill ${caseItem.status}`}>{caseItem.status.replace('_', ' ')}</span>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px', color: 'var(--color-text-muted)', fontSize: '14px' }}>
-                <div><strong>State:</strong> {caseItem.state || '—'}</div>
-                <div><strong>District:</strong> {caseItem.district || '—'}</div>
-                <div><strong>Trade:</strong> {caseItem.trade || '—'}</div>
-                <div><strong>Time:</strong> {caseItem.time}</div>
+              <div className="case-meta-grid">
+                <div><span>State</span><strong>{caseItem.state}</strong></div>
+                <div><span>District</span><strong>{caseItem.district}</strong></div>
+                <div><span>Trade</span><strong>{caseItem.trade}</strong></div>
+                <div><span>Concern</span><strong>{caseItem.concern}</strong></div>
+                <div><span>Callback time</span><strong>{caseItem.time}</strong></div>
+                <div><span>Requested</span><strong>{new Date(caseItem.timestamp).toLocaleDateString()}</strong></div>
               </div>
 
-              <div>
-                <div style={{ fontWeight: 700, marginBottom: '6px' }}>Trigger reason</div>
-                <div style={{ color: 'var(--color-text-muted)' }}>{caseItem.triggerReason}</div>
+              <div className="case-detail-box">
+                <div className="case-detail-label">Trigger reason</div>
+                <div>{caseItem.triggerReason}</div>
               </div>
 
-              <div>
-                <div style={{ fontWeight: 700, marginBottom: '6px' }}>Case summary</div>
-                <div style={{ color: 'var(--color-text-muted)' }}>{caseItem.summary}</div>
+              <div className="case-detail-box">
+                <div className="case-detail-label">Summary</div>
+                <div>{caseItem.summary}</div>
               </div>
 
-              <div style={{ color: 'var(--color-text-muted)', fontSize: '13px' }}>
-                Requested at: {new Date(caseItem.timestamp).toLocaleString()}
-              </div>
-
-              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+              <div className="case-actions">
                 {caseItem.status === 'open' && (
-                  <Button style={{ width: '120px', height: '40px', fontSize: '15px' }} onClick={() => claimCase(caseItem.id)}>
-                    Claim case
-                  </Button>
+                  <Button fullWidth={false} onClick={() => updateCase(caseItem.id, { status: 'claimed' })}>Claim case</Button>
                 )}
                 {caseItem.status === 'claimed' && (
                   <>
-                    <Button variant="secondary" style={{ width: '140px', height: '40px', fontSize: '15px' }} onClick={() => closeCase(caseItem.id, 'resolved')}>
-                      Mark resolved
-                    </Button>
-                    <Button variant="danger" style={{ width: '150px', height: '40px', fontSize: '15px' }} onClick={() => closeCase(caseItem.id, 'unreachable')}>
-                      Mark unreachable
-                    </Button>
+                    <Button fullWidth={false} variant="secondary" onClick={() => updateCase(caseItem.id, { status: 'in_call' })}>Start call</Button>
+                    <Button fullWidth={false} variant="secondary" onClick={() => updateCase(caseItem.id, { status: 'resolved' })}>Mark resolved</Button>
+                    <Button fullWidth={false} variant="danger" onClick={() => updateCase(caseItem.id, { status: 'unreachable' })}>Mark unreachable</Button>
                   </>
                 )}
+                {caseItem.status === 'in_call' && (
+                  <>
+                    <Button fullWidth={false} variant="secondary" onClick={() => updateCase(caseItem.id, { status: 'resolved' })}>Resolve</Button>
+                    <Button fullWidth={false} variant="danger" onClick={() => updateCase(caseItem.id, { status: 'unreachable' })}>Unreachable</Button>
+                  </>
+                )}
+                {(caseItem.status === 'resolved' || caseItem.status === 'unreachable') && (
+                  <Button fullWidth={false} variant="secondary" onClick={() => updateCase(caseItem.id, { status: 'open' })}>Reopen</Button>
+                )}
               </div>
-            </div>
-          ))}
-        </div>
-      )}
+            </article>
+          ))
+        )}
+      </div>
     </div>
   );
 };
