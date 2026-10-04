@@ -15,6 +15,11 @@ import CompareCitiesScreen from './features/explore/CompareCitiesScreen';
 import CounsellorView from './features/counsellor/CounsellorView';
 import DashboardView from './features/dashboard/DashboardView';
 import SentimentScreen from './features/sentiment/SentimentScreen';
+import FamilySummaryScreen from './features/summary/FamilySummaryScreen';
+import TradeListScreen from './features/explore/TradeListScreen';
+import TradeDetailScreen from './features/explore/TradeDetailScreen';
+import CompareTradesScreen from './features/explore/CompareTradesScreen';
+import EarningsCalculatorScreen from './features/explore/EarningsCalculatorScreen';
 
 function App() {
   return (
@@ -32,10 +37,15 @@ function App() {
             <Route path="/profile-parent" element={<ParentProfileScreen />} />
             
             <Route path="/summary" element={<AgreementScreen />} />
+            <Route path="/family-summary" element={<FamilySummaryScreen />} />
             <Route path="/sentiment-start" element={<SentimentScreen isStart={true} next="/chat" />} />
             
             <Route path="/chat" element={<ChatScreen />} />
+            <Route path="/explore" element={<TradeListScreen />} />
+            <Route path="/trade/:tradeId" element={<TradeDetailScreen />} />
+            <Route path="/compare-trades" element={<CompareTradesScreen />} />
             <Route path="/compare-cities" element={<CompareCitiesScreen />} />
+            <Route path="/earnings-calculator" element={<EarningsCalculatorScreen />} />
             
             <Route path="/escalation" element={<EscalationScreen />} />
             <Route path="/settings" element={<SettingsScreen />} />

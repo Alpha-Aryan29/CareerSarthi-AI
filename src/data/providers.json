@@ -1,0 +1,72 @@
+[
+  {
+    "id": "prov-mh-mumbai-001",
+    "name_en": "Demo ITI Mumbai 1",
+    "name_hi": "डेमो आईटीआई मुंबई 1",
+    "location_id": "loc-mh-mumbai",
+    "trades_offered": ["trade-001", "trade-002"]
+  },
+  {
+    "id": "prov-mh-mumbai-002",
+    "name_en": "Demo ITI Mumbai 2",
+    "name_hi": "डेमो आईटीआई मुंबई 2",
+    "location_id": "loc-mh-mumbai",
+    "trades_offered": ["trade-003", "trade-004"]
+  },
+  {
+    "id": "prov-mh-pune-001",
+    "name_en": "Demo ITI Pune 1",
+    "name_hi": "डेमो आईटीआई पुणे 1",
+    "location_id": "loc-mh-pune",
+    "trades_offered": ["trade-001", "trade-002", "trade-003"]
+  },
+  {
+    "id": "prov-mh-pune-002",
+    "name_en": "Demo ITI Pune 2",
+    "name_hi": "डेमो आईटीआई पुणे 2",
+    "location_id": "loc-mh-pune",
+    "trades_offered": ["trade-004"]
+  },
+  {
+    "id": "prov-mh-nagpur-001",
+    "name_en": "Demo ITI Nagpur 1",
+    "name_hi": "डेमो आईटीआई नागपुर 1",
+    "location_id": "loc-mh-nagpur",
+    "trades_offered": ["trade-001", "trade-002", "trade-003", "trade-004"]
+  },
+  {
+    "id": "prov-mh-nashik-001",
+    "name_en": "Demo ITI Nashik 1",
+    "name_hi": "डेमो आईटीआई नाशिक 1",
+    "location_id": "loc-mh-nashik",
+    "trades_offered": ["trade-001", "trade-003"]
+  },
+  {
+    "id": "prov-mh-gadchiroli-001",
+    "name_en": "Demo ITI Gadchiroli 1",
+    "name_hi": "डेमो आईटीआई गड़चिरोली 1",
+    "location_id": "loc-mh-gadchiroli",
+    "trades_offered": ["trade-001", "trade-004"]
+  },
+  {
+    "id": "prov-rj-jaipur-001",
+    "name_en": "Demo ITI Jaipur 1",
+    "name_hi": "डेमो आईटीआई जयपुर 1",
+    "location_id": "loc-rj-jaipur",
+    "trades_offered": ["trade-001", "trade-002", "trade-003"]
+  },
+  {
+    "id": "prov-rj-jaipur-002",
+    "name_en": "Demo ITI Jaipur 2",
+    "name_hi": "डेमो आईटीआई जयपुर 2",
+    "location_id": "loc-rj-jaipur",
+    "trades_offered": ["trade-004"]
+  },
+  {
+    "id": "prov-up-lucknow-001",
+    "name_en": "Demo ITI Lucknow 1",
+    "name_hi": "डेमो आईटीआई लखनऊ 1",
+    "location_id": "loc-up-lucknow",
+    "trades_offered": ["trade-001", "trade-002", "trade-003", "trade-004"]
+  }
+]

@@ -42,7 +42,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
             <MessageSquare size={24} />
             <span style={{ fontSize: '12px', marginTop: '4px' }}>Counsel</span>
           </button>
-          <button onClick={() => navigate('/compare-cities')} style={{ background: 'none', border: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', color: location.pathname.includes('/compare-cities') ? 'var(--color-primary)' : 'var(--color-text-muted)' }}>
+          <button onClick={() => navigate('/explore')} style={{ background: 'none', border: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', color: location.pathname.includes('/explore') || location.pathname.includes('/trade/') || location.pathname.includes('/compare-trades') || location.pathname.includes('/earnings-calculator') ? 'var(--color-primary)' : 'var(--color-text-muted)' }}>
             <Compass size={24} />
             <span style={{ fontSize: '12px', marginTop: '4px' }}>Explore</span>
           </button>

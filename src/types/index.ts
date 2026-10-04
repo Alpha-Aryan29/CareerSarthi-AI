@@ -67,3 +67,18 @@ export interface LookupItem {
   sort_order: number;
   icon?: string;
 }
+
+export interface Provider {
+  id: string;
+  name_en: string;
+  name_hi: string;
+  location_id: string;
+  trades_offered: string[];
+}
+
+export interface TradeRanking {
+  trade: Trade;
+  score: number;
+  reasons_en: string[];
+  reasons_hi: string[];
+}

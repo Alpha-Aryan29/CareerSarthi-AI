@@ -20,10 +20,11 @@ const ChatScreen: React.FC = () => {
   }]);
 
   const [inputValue, setInputValue] = useState('');
+  const [notReallyCount, setNotReallyCount] = useState(0);
+  const [escalationPrompt, setEscalationPrompt] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // All 8 concern categories for chips
-  const suggestedConcerns = concernData;
+  const suggestedConcerns = concernData.filter((concern) => concern.code !== 'other');
 
   const handleSend = (text: string) => {
     if (!text.trim()) return;
@@ -32,23 +33,55 @@ const ChatScreen: React.FC = () => {
     setMessages(prev => [...prev, userMsg]);
     setInputValue('');
 
-    // Simulate slight network delay
     setTimeout(() => {
       const response = processMessage(text, locationDistrictId, lang);
-      setMessages(prev => [...prev, { ...response, id: (Date.now() + 1).toString(), sender: 'assistant' }]);
+      const assistantMsg: ChatMessage = { ...response, id: (Date.now() + 1).toString(), sender: 'assistant' };
+      setMessages(prev => [...prev, assistantMsg]);
+
+      if (assistantMsg.requiresEscalation || assistantMsg.concernCode === 'safety') {
+        setEscalationPrompt(true);
+      }
     }, 600);
+  };
+
+  const handleFeedback = (helpful: boolean) => {
+    if (!helpful) {
+      setNotReallyCount((count) => count + 1);
+    }
   };
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  useEffect(() => {
+    if (notReallyCount >= 2) {
+      setEscalationPrompt(true);
+    }
+  }, [notReallyCount]);
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, height: 'calc(100vh - 73px - 72px)' }}>
-      {/* Chat History */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '24px 16px', paddingBottom: '32px' }}>
-        {messages.map(msg => <ChatBubble key={msg.id} message={msg} />)}
+        {messages.map(msg => (
+          <ChatBubble
+            key={msg.id}
+            message={msg}
+            onFeedback={handleFeedback}
+            onEscalate={() => navigate('/escalation')}
+          />
+        ))}
         <div ref={messagesEndRef} />
+
+        {escalationPrompt && (
+          <div style={{ marginTop: '16px', padding: '16px', borderRadius: '12px', backgroundColor: '#FEF3C7', border: '1px solid #FCD34D' }}>
+            <div style={{ fontWeight: 700, marginBottom: '8px' }}>Need a person?</div>
+            <div style={{ marginBottom: '12px', color: '#7C2D12' }}>A counsellor can walk through the same concern with you.</div>
+            <Button variant="secondary" onClick={() => navigate('/escalation')} style={{ width: 'auto', minWidth: '180px' }}>
+              Talk to a person
+            </Button>
+          </div>
+        )}
 
         {messages.length > 3 && (
           <div style={{ display: 'flex', justifyContent: 'center', marginTop: '32px', marginBottom: '32px' }}>
@@ -60,7 +93,6 @@ const ChatScreen: React.FC = () => {
       </div>
 
       <div style={{ backgroundColor: 'var(--color-surface)', borderTop: '1px solid var(--color-border)' }}>
-        {/* Chips */}
         <div style={{ padding: '12px 16px', overflowX: 'auto', whiteSpace: 'nowrap', borderBottom: '1px solid var(--color-border)', display: 'flex', WebkitOverflowScrolling: 'touch' }}>
           {suggestedConcerns.map(c => (
             <button
@@ -84,7 +116,6 @@ const ChatScreen: React.FC = () => {
           ))}
         </div>
 
-        {/* Input Area */}
         <div style={{ padding: '12px 16px', display: 'flex', gap: '12px', alignItems: 'center' }}>
           <button style={{ background: 'none', border: 'none', color: 'var(--color-primary)', padding: '8px' }}>
             <Mic size={28} />
