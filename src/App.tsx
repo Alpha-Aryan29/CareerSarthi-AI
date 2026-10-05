@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { LanguageProvider } from './hooks/useLanguage';
+import { LanguageProvider, useLanguage } from './hooks/useLanguage';
 import Layout from './components/Layout';
 import LanguageScreen from './features/onboarding/LanguageScreen';
 import ConsentScreen from './features/onboarding/ConsentScreen';
@@ -21,6 +21,17 @@ import TradeListScreen from './features/explore/TradeListScreen';
 import TradeDetailScreen from './features/explore/TradeDetailScreen';
 import CompareTradesScreen from './features/explore/CompareTradesScreen';
 import EarningsCalculatorScreen from './features/explore/EarningsCalculatorScreen';
+
+const ThankYouPage: React.FC = () => {
+  const { t } = useLanguage();
+
+  return (
+    <div className="screen-padding" style={{ textAlign: 'center', marginTop: '48px' }}>
+      <h2>{t('thanks_title')}</h2>
+      <p style={{ marginTop: '16px' }}>{t('thanks_message')}</p>
+    </div>
+  );
+};
 
 function App() {
   return (
@@ -53,12 +64,7 @@ function App() {
             <Route path="/settings" element={<SettingsScreen />} />
             <Route path="/sentiment-end" element={<SentimentScreen isStart={false} next="/thanks" />} />
             
-            <Route path="/thanks" element={
-              <div className="screen-padding" style={{ textAlign: 'center', marginTop: '48px' }}>
-                <h2>Thank You</h2>
-                <p style={{ marginTop: '16px' }}>Your session is complete.</p>
-              </div>
-            } />
+            <Route path="/thanks" element={<ThankYouPage />} />
             
             {/* Staff routes reuse the shared dashboard and escalation queue. */}
             <Route path="/counsellor" element={<CounsellorView />} />

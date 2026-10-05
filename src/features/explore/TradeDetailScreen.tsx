@@ -36,7 +36,7 @@ const getOutcomeForLocation = (tradeId: string, locationId: string): OutcomeReco
 const TradeDetailScreen: React.FC = () => {
   const { tradeId } = useParams();
   const navigate = useNavigate();
-  const { lang } = useLanguage();
+  const { lang, t } = useLanguage();
   const { locationDistrictId } = useSession();
 
   const trade = useMemo(
@@ -61,8 +61,8 @@ const TradeDetailScreen: React.FC = () => {
   if (!trade) {
     return (
       <div className="screen-padding">
-        <h2>Trade not found</h2>
-        <Button onClick={() => navigate('/explore')}>Back to explore</Button>
+        <h2>{t('trade_not_found')}</h2>
+        <Button onClick={() => navigate('/explore')}>{t('btn_back_to_explore')}</Button>
       </div>
     );
   }
@@ -75,15 +75,15 @@ const TradeDetailScreen: React.FC = () => {
           onClick={() => navigate(-1)}
           style={{ border: '1px solid var(--color-border)', background: 'var(--color-surface)', borderRadius: '999px', padding: '8px 12px', cursor: 'pointer' }}
         >
-          ← Back
+          ← {t('btn_back')}
         </button>
         <Button onClick={() => navigate('/compare-trades')} style={{ width: 'auto', minWidth: '180px', height: '44px', fontSize: '16px' }}>
-          Compare trade
+          {t('trade_compare')}
         </Button>
       </div>
 
       <div>
-        <div style={{ fontSize: '14px', color: 'var(--color-text-muted)', marginBottom: '8px' }}>Trade</div>
+        <div style={{ fontSize: '14px', color: 'var(--color-text-muted)', marginBottom: '8px' }}>{t('trade_label')}</div>
         <h1 style={{ margin: 0, fontSize: '28px' }}>{lang === 'hi' ? trade.name_hi : trade.name_en}</h1>
         <p style={{ color: 'var(--color-text-muted)', marginTop: '10px', lineHeight: 1.6 }}>
           {lang === 'hi' ? trade.description_hi : trade.description_en}
@@ -93,18 +93,18 @@ const TradeDetailScreen: React.FC = () => {
       {activeOutcome && <OutcomeDataCard outcome={activeOutcome} trade={trade} />}
 
       <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: '16px', padding: '20px' }}>
-        <h3 style={{ margin: '0 0 12px' }}>What is NSQF?</h3>
+        <h3 style={{ margin: '0 0 12px' }}>{t('trade_nsqf_heading')}</h3>
         <p style={{ margin: 0, color: 'var(--color-text-muted)', lineHeight: 1.7 }}>
-          NSQF is the National Skills Qualifications Framework. It helps learners understand how each vocational course builds from basic skills to higher jobs, training and further education options.
+          {t('trade_nsqf_body')}
         </p>
       </div>
 
       <CareerLadder steps={steps} />
 
       <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: '16px', padding: '20px' }}>
-        <h3 style={{ margin: '0 0 12px' }}>Providers in my city</h3>
+        <h3 style={{ margin: '0 0 12px' }}>{t('trade_providers_heading')}</h3>
         {providers.length === 0 ? (
-          <p style={{ margin: 0, color: 'var(--color-text-muted)' }}>No training providers for this trade in the selected city.</p>
+          <p style={{ margin: 0, color: 'var(--color-text-muted)' }}>{t('trade_no_providers')}</p>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {providers.map((provider) => {
@@ -120,10 +120,10 @@ const TradeDetailScreen: React.FC = () => {
                   <div style={{ fontWeight: 700 }}>{lang === 'hi' ? provider.name_hi : provider.name_en}</div>
                   {providerOutcome ? (
                     <div style={{ marginTop: '6px', color: 'var(--color-text-muted)', fontSize: '14px' }}>
-                      Placement: {providerOutcome.placement_rate_pct}% · Median earnings: ₹{providerOutcome.earnings_median_inr?.toLocaleString('en-IN')}
+                      {t('trade_provider_placement')}: {providerOutcome.placement_rate_pct}% · {t('trade_provider_earnings')}: ₹{providerOutcome.earnings_median_inr?.toLocaleString('en-IN')}
                     </div>
                   ) : (
-                    <div style={{ marginTop: '6px', color: 'var(--color-text-muted)', fontSize: '14px' }}>Outcome data not available yet.</div>
+                    <div style={{ marginTop: '6px', color: 'var(--color-text-muted)', fontSize: '14px' }}>{t('trade_outcome_unavailable')}</div>
                   )}
                 </div>
               );

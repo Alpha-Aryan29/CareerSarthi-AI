@@ -7,7 +7,7 @@ import type { LocationRecord, Trade, OutcomeRecord } from '../../types';
 import OutcomeDataCard from '../../components/OutcomeDataCard';
 
 const CompareCitiesScreen: React.FC = () => {
-  const { lang } = useLanguage();
+  const { lang, t } = useLanguage();
   
   const [tradeId, setTradeId] = useState<string>('trade-001');
   const [city1, setCity1] = useState<string>('loc-mh-mumbai');
@@ -37,10 +37,10 @@ const CompareCitiesScreen: React.FC = () => {
 
   return (
     <div className="screen-padding">
-      <h1 style={{ marginBottom: '24px' }}>Compare Cities</h1>
+      <h1 style={{ marginBottom: '24px' }}>{t('compare_cities_title')}</h1>
 
       <div style={{ marginBottom: '24px' }}>
-        <label style={{ display: 'block', fontWeight: 600, marginBottom: '8px' }}>Select Trade</label>
+        <label style={{ display: 'block', fontWeight: 600, marginBottom: '8px' }}>{t('calc_trade_label')}</label>
         <select style={selectStyle} value={tradeId} onChange={e => setTradeId(e.target.value)}>
           {trades.map(t => <option key={t.id} value={t.id}>{lang === 'hi' ? t.name_hi : t.name_en}</option>)}
         </select>
@@ -48,18 +48,18 @@ const CompareCitiesScreen: React.FC = () => {
 
       <div style={{ display: 'flex', gap: '16px', marginBottom: '32px' }}>
         <div style={{ flex: 1 }}>
-          <label style={{ display: 'block', fontWeight: 600, marginBottom: '8px' }}>City 1</label>
+          <label style={{ display: 'block', fontWeight: 600, marginBottom: '8px' }}>{t('compare_city_one')}</label>
           <select style={selectStyle} value={city1} onChange={e => setCity1(e.target.value)}>
             {districts.map(d => <option key={d.id} value={d.id}>{lang === 'hi' ? d.name_hi : d.name_en}</option>)}
           </select>
-          {outcome1 ? <OutcomeDataCard outcome={outcome1} trade={selectedTrade} /> : <p>No data available</p>}
+          {outcome1 ? <OutcomeDataCard outcome={outcome1} trade={selectedTrade} /> : <p>{t('compare_no_data')}</p>}
         </div>
         <div style={{ flex: 1 }}>
-          <label style={{ display: 'block', fontWeight: 600, marginBottom: '8px' }}>City 2</label>
+          <label style={{ display: 'block', fontWeight: 600, marginBottom: '8px' }}>{t('compare_city_two')}</label>
           <select style={selectStyle} value={city2} onChange={e => setCity2(e.target.value)}>
             {districts.map(d => <option key={d.id} value={d.id}>{lang === 'hi' ? d.name_hi : d.name_en}</option>)}
           </select>
-          {outcome2 ? <OutcomeDataCard outcome={outcome2} trade={selectedTrade} /> : <p>No data available</p>}
+          {outcome2 ? <OutcomeDataCard outcome={outcome2} trade={selectedTrade} /> : <p>{t('compare_no_data')}</p>}
         </div>
       </div>
     </div>

@@ -190,7 +190,7 @@ const FamilySummaryScreen: React.FC = () => {
                   fontSize: "12px",
                   fontWeight: 700
                 }}>
-                  #{index + 1} Best Match
+                  #{index + 1} {t("summary_top_match")}
                 </div>
               )}
 

@@ -1,5 +1,5 @@
 export type EscalationPriority = 'High' | 'Medium' | 'Low';
-export type EscalationStatus = 'open' | 'claimed' | 'in_call' | 'resolved' | 'unreachable';
+export type EscalationStatus = 'open' | 'claimed' | 'scheduled' | 'in_call' | 'resolved' | 'unreachable';
 export type ConcernType = 'earning potential' | 'job security' | 'social status' | 'safety' | 'cost';
 
 export interface EscalationCase {
@@ -192,6 +192,7 @@ export function getStatusCounts(cases: EscalationCase[]) {
   return {
     open: cases.filter((item) => item.status === 'open').length,
     claimed: cases.filter((item) => item.status === 'claimed').length,
+    scheduled: cases.filter((item) => item.status === 'scheduled').length,
     inCall: cases.filter((item) => item.status === 'in_call').length,
     resolved: cases.filter((item) => item.status === 'resolved').length,
     unreachable: cases.filter((item) => item.status === 'unreachable').length,

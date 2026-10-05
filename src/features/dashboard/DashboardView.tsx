@@ -17,7 +17,7 @@ const DashboardView: React.FC = () => {
   const avgBefore = cases.length ? Number((cases.reduce((sum, item) => sum + item.sentimentBefore, 0) / cases.length).toFixed(1)) : 0;
   const avgAfter = cases.length ? Number((cases.reduce((sum, item) => sum + item.sentimentAfter, 0) / cases.length).toFixed(1)) : 0;
   const resolutionRate = cases.length ? Math.round((statusCounts.resolved / cases.length) * 100) : 0;
-  const activeEscalations = statusCounts.open + statusCounts.claimed + statusCounts.inCall;
+  const activeEscalations = statusCounts.open + statusCounts.claimed + statusCounts.scheduled + statusCounts.inCall;
 
   const resistanceIndex = useMemo(() => {
     const highestDistrict = districtInsights.sort((a, b) => b.resistance - a.resistance)[0];

@@ -9,6 +9,7 @@ const tabs = [
   { key: 'open', label: 'Open' },
   { key: 'high', label: 'High Priority' },
   { key: 'claimed', label: 'Claimed' },
+  { key: 'scheduled', label: 'Scheduled' },
   { key: 'resolved', label: 'Resolved' },
   { key: 'unreachable', label: 'Unreachable' },
 ];
@@ -65,6 +66,7 @@ const CounsellorView: React.FC = () => {
     { label: 'Open Cases', value: statusCounts.open, icon: HeadphonesIcon },
     { label: 'High Priority', value: statusCounts.highPriority, icon: CircleAlert },
     { label: 'Claimed', value: statusCounts.claimed, icon: UserRound },
+    { label: 'Scheduled Callbacks', value: statusCounts.scheduled, icon: HeadphonesIcon },
     { label: 'Resolved Today', value: statusCounts.resolved, icon: CheckCheck },
   ];
 
@@ -94,7 +96,7 @@ const CounsellorView: React.FC = () => {
           <div className="eyebrow">Counsellor workspace</div>
           <h1>Case queue</h1>
         </div>
-        <div className="trust-pill">Verified information + Human guidance</div>
+        <div className="trust-pill">Sourced information + human guidance</div>
       </div>
 
       <div className="kpi-grid compact-grid">
@@ -147,6 +149,7 @@ const CounsellorView: React.FC = () => {
             <option value="all">All statuses</option>
             <option value="open">Open</option>
             <option value="claimed">Claimed</option>
+            <option value="scheduled">Scheduled</option>
             <option value="in_call">In Call</option>
             <option value="resolved">Resolved</option>
             <option value="unreachable">Unreachable</option>
@@ -193,10 +196,32 @@ const CounsellorView: React.FC = () => {
               <div className="case-top-row">
                 <div>
                   <div className="case-priority">{caseItem.priority} priority</div>
-                  <h3>{caseItem.name ? caseItem.name : 'Family callback'} <span>• {caseItem.phone}</span></h3>
+                  <h3>{caseItem.name ? caseItem.name : 'Family callback'} <span>• {caseItem.status === 'open' ? 'Phone visible after case is claimed' : caseItem.phone}</span></h3>
                 </div>
                 <span className={`status-pill ${caseItem.status}`}>{caseItem.status.replace('_', ' ')}</span>
               </div>
+
+              <ol className="case-status-flow" aria-label="Callback status">
+                {[
+                  { status: 'open', label: 'Request received' },
+                  { status: 'claimed', label: 'Assigned' },
+                  { status: 'scheduled', label: 'Scheduled' },
+                  { status: 'resolved', label: 'Completed' },
+                ].map((stage, index) => {
+                  const currentIndex = caseItem.status === 'in_call'
+                    ? 2
+                    : caseItem.status === 'unreachable'
+                      ? 1
+                      : ['open', 'claimed', 'scheduled', 'resolved'].indexOf(caseItem.status);
+
+                  return (
+                    <li className={index <= currentIndex ? 'complete' : ''} key={stage.status}>
+                      <span>{index < currentIndex ? <CheckCheck size={13} /> : index + 1}</span>
+                      <small>{stage.label}</small>
+                    </li>
+                  );
+                })}
+              </ol>
 
               <div className="case-meta-grid">
                 <div><span>State</span><strong>{caseItem.state}</strong></div>
@@ -223,8 +248,15 @@ const CounsellorView: React.FC = () => {
                 )}
                 {caseItem.status === 'claimed' && (
                   <>
+                    <Button fullWidth={false} variant="secondary" onClick={() => updateCase(caseItem.id, { status: 'scheduled' })}>Schedule callback</Button>
                     <Button fullWidth={false} variant="secondary" onClick={() => updateCase(caseItem.id, { status: 'in_call' })}>Start call</Button>
                     <Button fullWidth={false} variant="secondary" onClick={() => updateCase(caseItem.id, { status: 'resolved' })}>Mark resolved</Button>
+                    <Button fullWidth={false} variant="danger" onClick={() => updateCase(caseItem.id, { status: 'unreachable' })}>Mark unreachable</Button>
+                  </>
+                )}
+                {caseItem.status === 'scheduled' && (
+                  <>
+                    <Button fullWidth={false} variant="secondary" onClick={() => updateCase(caseItem.id, { status: 'in_call' })}>Start scheduled call</Button>
                     <Button fullWidth={false} variant="danger" onClick={() => updateCase(caseItem.id, { status: 'unreachable' })}>Mark unreachable</Button>
                   </>
                 )}

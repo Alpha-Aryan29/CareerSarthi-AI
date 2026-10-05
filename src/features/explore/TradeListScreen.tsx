@@ -1,189 +1,203 @@
-﻿import React, { useState, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
-import { useLanguage } from "../../hooks/useLanguage";
-import tradesData from "../../data/trades.json";
-import type { Trade } from "../../types";
-import { Search, ChevronRight, GitCompare, Calculator } from "lucide-react";
+import React, { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useLanguage } from '../../hooks/useLanguage';
+import { useSession } from '../../hooks/useSession';
+import tradesData from '../../data/trades.json';
+import outcomeRecordsData from '../../data/outcome_records.json';
+import locationsData from '../../data/locations.json';
+import type { OutcomeRecord, Trade } from '../../types';
+import {
+  Activity,
+  BriefcaseBusiness,
+  Calculator,
+  ChevronRight,
+  Cpu,
+  GitCompare,
+  GraduationCap,
+  HeartPulse,
+  Search,
+  Wrench,
+  Zap,
+} from 'lucide-react';
 
-const SECTOR_COLORS: Record<string, { bg: string; text: string }> = {
-  Electrical: { bg: "#FEF3C7", text: "#92400E" },
-  Mechanical: { bg: "#DBEAFE", text: "#1E40AF" },
-  IT:          { bg: "#D1FAE5", text: "#065F46" },
-  Healthcare:  { bg: "#FCE7F3", text: "#9D174D" },
+const SECTOR_STYLES = {
+  Electrical: { icon: Zap, tone: 'electrical', label: 'sector_electrical' },
+  Mechanical: { icon: Wrench, tone: 'mechanical', label: 'sector_mechanical' },
+  IT: { icon: Cpu, tone: 'technology', label: 'sector_it' },
+  Healthcare: { icon: HeartPulse, tone: 'healthcare', label: 'sector_healthcare' },
+} as const;
+
+const getOutcome = (tradeId: string, locationId: string | null): OutcomeRecord | undefined => {
+  if (!locationId) return undefined;
+  const direct = outcomeRecordsData.find(
+    (item) => item.trade_id === tradeId && item.location_id === locationId && item.scope !== 'provider'
+  );
+  if (direct) return direct as OutcomeRecord;
+
+  const district = locationsData.find((item) => item.id === locationId);
+  return district?.parent_id
+    ? outcomeRecordsData.find(
+        (item) => item.trade_id === tradeId && item.location_id === district.parent_id && item.scope === 'state'
+      ) as OutcomeRecord | undefined
+    : undefined;
 };
+
+const formatINR = (value: number | null | undefined) =>
+  value == null ? '—' : `₹${value.toLocaleString('en-IN')}`;
 
 const TradeListScreen: React.FC = () => {
   const navigate = useNavigate();
   const { lang, t } = useLanguage();
+  const { locationDistrictId } = useSession();
   const trades = tradesData as Trade[];
-
-  const sectors = ["All Sectors", ...Array.from(new Set(trades.map((t) => t.sector)))];
-  const [search, setSearch] = useState("");
-  const [sector, setSector] = useState("All Sectors");
+  const sectors = ['All Sectors', ...Array.from(new Set(trades.map((trade) => trade.sector)))];
+  const [search, setSearch] = useState('');
+  const [sector, setSector] = useState('All Sectors');
 
   const filtered = useMemo(() => {
+    const query = search.trim().toLocaleLowerCase(lang === 'hi' ? 'hi-IN' : 'en-IN');
     return trades.filter((trade) => {
-      const name = lang === "hi" ? trade.name_hi : trade.name_en;
-      const desc = lang === "hi" ? trade.description_hi : trade.description_en;
-      const matchSector = sector === "All Sectors" || trade.sector === sector;
-      const matchSearch =
-        !search ||
-        name.toLowerCase().includes(search.toLowerCase()) ||
-        desc.toLowerCase().includes(search.toLowerCase());
-      return matchSector && matchSearch && trade.is_active;
+      const name = lang === 'hi' ? trade.name_hi : trade.name_en;
+      const description = lang === 'hi' ? trade.description_hi : trade.description_en;
+      return (
+        trade.is_active &&
+        (sector === 'All Sectors' || trade.sector === sector) &&
+        (!query || name.toLocaleLowerCase().includes(query) || description.toLocaleLowerCase().includes(query))
+      );
     });
-  }, [trades, search, sector, lang]);
+  }, [lang, search, sector, trades]);
 
   return (
-    <div className="screen-padding" style={{ display: "flex", flexDirection: "column", minHeight: "100%" }}>
-      <h1 style={{ fontSize: "22px", marginBottom: "16px" }}>{t("explore_title")}</h1>
+    <div className="page-shell explore-shell screen-padding">
+      <header className="explore-heading">
+        <div>
+          <div className="eyebrow">{t('home_eyebrow')}</div>
+          <h1>{t('explore_title')}</h1>
+          <p>{t('home_recommendations_desc')}</p>
+        </div>
+        <div className="explore-heading-mark"><BriefcaseBusiness size={24} /></div>
+      </header>
 
-      {/* Search */}
-      <div style={{
-        display: "flex", alignItems: "center", gap: "10px",
-        backgroundColor: "var(--color-surface)",
-        border: "1px solid var(--color-border)",
-        borderRadius: "12px",
-        padding: "10px 14px",
-        marginBottom: "12px"
-      }}>
-        <Search size={18} color="var(--color-text-muted)" />
-        <input
-          id="trade-search"
-          type="text"
-          placeholder={t("explore_search")}
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          style={{
-            border: "none",
-            outline: "none",
-            background: "transparent",
-            flex: 1,
-            fontSize: "16px",
-            color: "var(--color-text)"
-          }}
-        />
-      </div>
+      <div className="explore-tools">
+        <label className="explore-search">
+          <Search size={19} aria-hidden="true" />
+          <span className="visually-hidden">{t('explore_search')}</span>
+          <input
+            type="search"
+            placeholder={t('explore_search')}
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+          />
+          {search && (
+            <button type="button" onClick={() => setSearch('')} aria-label={t('explore_clear_search')}>×</button>
+          )}
+        </label>
 
-      {/* Sector filter chips */}
-      <div style={{ display: "flex", gap: "8px", overflowX: "auto", paddingBottom: "4px", marginBottom: "16px" }}>
-        {sectors.map((s) => (
-          <button
-            key={s}
-            onClick={() => setSector(s)}
-            style={{
-              flexShrink: 0,
-              padding: "6px 14px",
-              borderRadius: "999px",
-              border: "1px solid",
-              borderColor: sector === s ? "var(--color-primary)" : "var(--color-border)",
-              backgroundColor: sector === s ? "var(--color-primary)" : "var(--color-surface)",
-              color: sector === s ? "white" : "var(--color-text)",
-              cursor: "pointer",
-              fontSize: "14px",
-              fontWeight: sector === s ? 600 : 400
-            }}
-          >
-            {s}
+        <div className="explore-quick-actions">
+          <button type="button" onClick={() => navigate('/compare-trades')}>
+            <GitCompare size={17} /> {t('explore_compare')}
           </button>
-        ))}
+          <button type="button" onClick={() => navigate('/earnings-calculator')}>
+            <Calculator size={17} /> {t('explore_calculator')}
+          </button>
+        </div>
       </div>
 
-      {/* Quick actions */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "20px" }}>
-        <button
-          onClick={() => navigate("/compare-trades")}
-          style={{
-            display: "flex", alignItems: "center", gap: "8px",
-            padding: "12px 14px",
-            backgroundColor: "#EEF2FF",
-            border: "1px solid #C7D2FE",
-            borderRadius: "12px",
-            cursor: "pointer",
-            fontSize: "14px",
-            fontWeight: 600,
-            color: "#3730A3"
-          }}
-        >
-          <GitCompare size={18} />
-          {t("explore_compare")}
-        </button>
-        <button
-          onClick={() => navigate("/earnings-calculator")}
-          style={{
-            display: "flex", alignItems: "center", gap: "8px",
-            padding: "12px 14px",
-            backgroundColor: "#F0FDF4",
-            border: "1px solid #A7F3D0",
-            borderRadius: "12px",
-            cursor: "pointer",
-            fontSize: "14px",
-            fontWeight: 600,
-            color: "#065F46"
-          }}
-        >
-          <Calculator size={18} />
-          {t("explore_calculator")}
-        </button>
-      </div>
-
-      {/* Trade cards */}
-      {filtered.length === 0 ? (
-        <p style={{ color: "var(--color-text-muted)", textAlign: "center", marginTop: "32px" }}>
-          {t("explore_no_results")}
-        </p>
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: "12px", paddingBottom: "24px" }}>
-          {filtered.map((trade) => {
-            const col = SECTOR_COLORS[trade.sector] || { bg: "#F3F4F6", text: "#111827" };
+      <div className="explore-filter-row">
+        <div className="explore-filter-label">{t('explore_all_sectors')}</div>
+        <div className="explore-sector-filters" role="group" aria-label={t('explore_all_sectors')}>
+          {sectors.map((item) => {
+            const style = SECTOR_STYLES[item as keyof typeof SECTOR_STYLES];
             return (
               <button
-                key={trade.id}
-                id={`trade-card-${trade.id}`}
-                onClick={() => navigate(`/trade/${trade.id}`)}
-                style={{
-                  display: "flex", alignItems: "center", gap: "12px",
-                  backgroundColor: "var(--color-surface)",
-                  border: "1px solid var(--color-border)",
-                  borderRadius: "16px",
-                  padding: "16px",
-                  cursor: "pointer",
-                  textAlign: "left",
-                  width: "100%",
-                  boxShadow: "var(--shadow-sm)"
-                }}
+                type="button"
+                key={item}
+                className={`explore-filter-chip ${sector === item ? 'active' : ''}`}
+                aria-pressed={sector === item}
+                onClick={() => setSector(item)}
               >
-                <div style={{
-                  width: "48px", height: "48px", borderRadius: "12px",
-                  backgroundColor: col.bg,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: "22px", flexShrink: 0
-                }}>
-                  {trade.sector === "Electrical" ? "⚡" :
-                   trade.sector === "Mechanical" ? "🔧" :
-                   trade.sector === "IT" ? "💻" : "🏥"}
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 700, fontSize: "16px", color: "var(--color-text)", marginBottom: "4px" }}>
-                    {lang === "hi" ? trade.name_hi : trade.name_en}
-                  </div>
-                  <div style={{ fontSize: "13px", color: "var(--color-text-muted)", lineHeight: "1.4", marginBottom: "6px" }}>
-                    {(lang === "hi" ? trade.description_hi : trade.description_en).slice(0, 80)}…
-                  </div>
-                  <span style={{
-                    backgroundColor: col.bg, color: col.text,
-                    borderRadius: "999px", padding: "2px 10px",
-                    fontSize: "12px", fontWeight: 600
-                  }}>
-                    {trade.sector}
-                  </span>
-                </div>
-                <ChevronRight size={20} color="var(--color-text-muted)" />
+                {style && <style.icon size={15} />}
+                {style ? t(style.label) : t('explore_all_sectors')}
               </button>
             );
           })}
         </div>
+      </div>
+
+      <div className="explore-results-heading">
+        <span>{t('explore_results_count').replace('{count}', String(filtered.length))}</span>
+        <span className="explore-location-indicator">
+          <Activity size={15} />
+          {locationDistrictId ? t('notification_city_ready') : t('explore_location_unset')}
+        </span>
+      </div>
+
+      {filtered.length === 0 ? (
+        <div className="explore-empty-state">
+          <Search size={25} />
+          <strong>{t('explore_no_results')}</strong>
+          <button type="button" className="secondary-button" onClick={() => { setSearch(''); setSector('All Sectors'); }}>
+            {t('explore_clear_filters')}
+          </button>
+        </div>
+      ) : (
+        <div className="explore-career-grid">
+          {filtered.map((trade) => {
+            const style = SECTOR_STYLES[trade.sector as keyof typeof SECTOR_STYLES] || { icon: GraduationCap, tone: 'technology', label: '' as const };
+            const Icon = style.icon;
+            const outcome = getOutcome(trade.id, locationDistrictId);
+
+            return (
+              <article className="explore-career-card" key={trade.id}>
+                <button
+                  type="button"
+                  className="explore-career-main"
+                  onClick={() => navigate(`/trade/${trade.id}`)}
+                  aria-label={`${lang === 'hi' ? trade.name_hi : trade.name_en}: ${t('explore_pathway')}`}
+                >
+                  <div className={`explore-career-icon ${style.tone}`}><Icon size={22} /></div>
+                  <span className="explore-sector-label">{style.label ? t(style.label) : trade.sector}</span>
+                  <h2>{lang === 'hi' ? trade.name_hi : trade.name_en}</h2>
+                  <p>{lang === 'hi' ? trade.description_hi : trade.description_en}</p>
+                  <div className="explore-entry-level">
+                    <GraduationCap size={16} />
+                    {t('explore_entry_level')}: NSQF {trade.entry_nsqf_level}
+                  </div>
+                  <div className="explore-card-metrics">
+                    {outcome ? (
+                      <>
+                        <div>
+                          <span>{t('explore_salary_range')}</span>
+                          <strong>{formatINR(outcome.earnings_p25_inr)}–{formatINR(outcome.earnings_p75_inr)}</strong>
+                        </div>
+                        <div>
+                          <span>{t('explore_placement')}</span>
+                          <strong>{outcome.placement_rate_pct ?? '—'}%</strong>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="explore-no-outcome">{t('explore_location_unset')}</div>
+                    )}
+                  </div>
+                  <div className="explore-pilot-label">{t('explore_pilot_note')}</div>
+                </button>
+                <button
+                  type="button"
+                  className="explore-card-link"
+                  onClick={() => navigate(`/trade/${trade.id}`)}
+                >
+                  {t('explore_pathway')} <ChevronRight size={17} />
+                </button>
+              </article>
+            );
+          })}
+        </div>
       )}
+
+      <section className="explore-skills-note">
+        <GraduationCap size={20} />
+        <span>{t('explore_skills_note')}</span>
+      </section>
     </div>
   );
 };

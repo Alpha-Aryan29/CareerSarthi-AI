@@ -4,7 +4,7 @@ import { useLanguage } from '../../hooks/useLanguage';
 import Button from '../../components/ui/Button';
 
 const SettingsScreen: React.FC = () => {
-  const { lang, setLang } = useLanguage();
+  const { lang, setLang, t } = useLanguage();
   const { 
     textSize, setTextSize,
     simpleMode, setSimpleMode,
@@ -13,14 +13,6 @@ const SettingsScreen: React.FC = () => {
     audioSpeed, setAudioSpeed
   } = useSettings();
 
-  const sectionStyle = {
-    padding: '16px',
-    backgroundColor: 'var(--color-surface)',
-    borderRadius: '12px',
-    marginBottom: '16px',
-    border: '1px solid var(--color-border)',
-  };
-
   const labelStyle = {
     fontWeight: 600,
     marginBottom: '8px',
@@ -28,63 +20,70 @@ const SettingsScreen: React.FC = () => {
   };
 
   return (
-    <div className="screen-padding" style={{ paddingBottom: '100px' }}>
-      <h1 style={{ marginBottom: '24px' }}>Settings</h1>
+    <div className="page-shell settings-shell screen-padding">
+      <header className="settings-heading">
+        <div className="eyebrow">{t('nav_help')}</div>
+        <h1>{t('settings_title')}</h1>
+      </header>
 
-      <div style={sectionStyle}>
-        <label style={labelStyle}>Language / भाषा</label>
+      <section className="settings-section">
+        <label style={labelStyle}>{t('settings_language')}</label>
         <div style={{ display: 'flex', gap: '12px' }}>
-          <Button variant={lang === 'en' ? 'primary' : 'secondary'} onClick={() => setLang('en')} style={{ flex: 1, minHeight: '48px' }}>English</Button>
-          <Button variant={lang === 'hi' ? 'primary' : 'secondary'} onClick={() => setLang('hi')} style={{ flex: 1, minHeight: '48px' }}>हिन्दी</Button>
+          <Button variant={lang === 'en' ? 'primary' : 'secondary'} aria-pressed={lang === 'en'} onClick={() => setLang('en')} style={{ flex: 1, minHeight: '48px' }}>{t('settings_english')}</Button>
+          <Button variant={lang === 'hi' ? 'primary' : 'secondary'} aria-pressed={lang === 'hi'} onClick={() => setLang('hi')} style={{ flex: 1, minHeight: '48px' }}>हिन्दी</Button>
         </div>
-      </div>
+        {lang === 'hi' && <p className="settings-language-note">{t('settings_language_note')}</p>}
+      </section>
 
-      <div style={sectionStyle}>
-        <label style={labelStyle}>Text Size</label>
+      <section className="settings-section">
+        <label style={labelStyle}>{t('settings_text_size')}</label>
         <div style={{ display: 'flex', gap: '8px' }}>
-          <Button variant={textSize === 'normal' ? 'primary' : 'secondary'} onClick={() => setTextSize('normal')} style={{ flex: 1, minHeight: '48px' }}>Normal</Button>
-          <Button variant={textSize === 'large' ? 'primary' : 'secondary'} onClick={() => setTextSize('large')} style={{ flex: 1, minHeight: '48px' }}>Large</Button>
-          <Button variant={textSize === 'extra_large' ? 'primary' : 'secondary'} onClick={() => setTextSize('extra_large')} style={{ flex: 1, minHeight: '48px' }}>X-Large</Button>
+          <Button variant={textSize === 'normal' ? 'primary' : 'secondary'} onClick={() => setTextSize('normal')} style={{ flex: 1, minHeight: '48px' }}>{t('settings_normal')}</Button>
+          <Button variant={textSize === 'large' ? 'primary' : 'secondary'} onClick={() => setTextSize('large')} style={{ flex: 1, minHeight: '48px' }}>{t('settings_large')}</Button>
+          <Button variant={textSize === 'extra_large' ? 'primary' : 'secondary'} onClick={() => setTextSize('extra_large')} style={{ flex: 1, minHeight: '48px' }}>{t('settings_x_large')}</Button>
         </div>
-      </div>
+      </section>
 
-      <div style={sectionStyle}>
+      <section className="settings-section">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <label style={labelStyle}>Simple Mode</label>
-            <span style={{ fontSize: '14px', color: 'var(--color-text-muted)' }}>More icons, less text</span>
+            <label htmlFor="setting-simple-mode" style={labelStyle}>{t('settings_simple_mode')}</label>
+            <span style={{ fontSize: '14px', color: 'var(--color-text-muted)' }}>{t('settings_simple_mode_description')}</span>
           </div>
           <input 
+            id="setting-simple-mode"
             type="checkbox" 
             checked={simpleMode} 
             onChange={(e) => setSimpleMode(e.target.checked)} 
             style={{ width: '24px', height: '24px' }}
           />
         </div>
-      </div>
+      </section>
 
-      <div style={sectionStyle}>
+      <section className="settings-section">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <label style={labelStyle}>High Contrast</label>
-            <span style={{ fontSize: '14px', color: 'var(--color-text-muted)' }}>Darker text, clearer borders</span>
+            <label htmlFor="setting-high-contrast" style={labelStyle}>{t('settings_high_contrast')}</label>
+            <span style={{ fontSize: '14px', color: 'var(--color-text-muted)' }}>{t('settings_high_contrast_description')}</span>
           </div>
           <input 
+            id="setting-high-contrast"
             type="checkbox" 
             checked={highContrast} 
             onChange={(e) => setHighContrast(e.target.checked)} 
             style={{ width: '24px', height: '24px' }}
           />
         </div>
-      </div>
+      </section>
 
-      <div style={sectionStyle}>
+      <section className="settings-section">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
           <div>
-            <label style={labelStyle}>Read Replies Aloud</label>
-            <span style={{ fontSize: '14px', color: 'var(--color-text-muted)' }}>Auto-play assistant messages</span>
+            <label htmlFor="setting-read-aloud" style={labelStyle}>{t('settings_read_replies_aloud')}</label>
+            <span style={{ fontSize: '14px', color: 'var(--color-text-muted)' }}>{t('settings_read_replies_description')}</span>
           </div>
           <input 
+            id="setting-read-aloud"
             type="checkbox" 
             checked={readAloud} 
             onChange={(e) => setReadAloud(e.target.checked)} 
@@ -94,14 +93,14 @@ const SettingsScreen: React.FC = () => {
 
         {readAloud && (
           <div>
-            <label style={{ ...labelStyle, fontSize: '14px' }}>Audio Speed</label>
+            <label style={{ ...labelStyle, fontSize: '14px' }}>{t('settings_audio_speed')}</label>
             <div style={{ display: 'flex', gap: '8px' }}>
-              <Button variant={audioSpeed === 'normal' ? 'primary' : 'secondary'} onClick={() => setAudioSpeed('normal')} style={{ flex: 1, minHeight: '48px' }}>Normal</Button>
-              <Button variant={audioSpeed === 'slow' ? 'primary' : 'secondary'} onClick={() => setAudioSpeed('slow')} style={{ flex: 1, minHeight: '48px' }}>Slow</Button>
+              <Button variant={audioSpeed === 'normal' ? 'primary' : 'secondary'} onClick={() => setAudioSpeed('normal')} style={{ flex: 1, minHeight: '48px' }}>{t('settings_normal')}</Button>
+              <Button variant={audioSpeed === 'slow' ? 'primary' : 'secondary'} onClick={() => setAudioSpeed('slow')} style={{ flex: 1, minHeight: '48px' }}>{t('settings_slow')}</Button>
             </div>
           </div>
         )}
-      </div>
+      </section>
 
     </div>
   );

@@ -26,7 +26,7 @@ const AgreementScreen: React.FC = () => {
               <span key={item.code} style={{ backgroundColor: '#D1FAE5', color: '#065F46', borderRadius: '999px', padding: '6px 10px', fontSize: '14px' }}>
                 {lang === 'hi' ? item.label_hi : item.label_en}
               </span>
-            )) : <span style={{ color: 'var(--color-text-muted)' }}>No learner interests selected.</span>}
+            )) : <span style={{ color: 'var(--color-text-muted)' }}>{t('agreement_no_interests')}</span>}
           </div>
         </div>
 
@@ -35,13 +35,13 @@ const AgreementScreen: React.FC = () => {
           <ul style={{ paddingLeft: '20px', margin: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {selectedConcerns.length > 0 ? selectedConcerns.map(c => (
               <li key={c.code} style={{ fontSize: '16px' }}>{lang === 'hi' ? c.label_hi : c.label_en}</li>
-            )) : <li style={{ color: 'var(--color-text-muted)' }}>No specific concerns selected.</li>}
+            )) : <li style={{ color: 'var(--color-text-muted)' }}>{t('agreement_no_concerns')}</li>}
           </ul>
         </div>
       </div>
 
       <Button onClick={() => navigate('/family-summary')} style={{ marginTop: 'auto' }}>
-        View family summary
+        {t('agreement_view_summary')}
       </Button>
     </div>
   );

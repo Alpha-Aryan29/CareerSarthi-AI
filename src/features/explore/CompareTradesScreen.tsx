@@ -29,7 +29,7 @@ const getOutcomeForTradeAndLocation = (tradeId: string, locationId: string): Out
 
 const CompareTradesScreen: React.FC = () => {
   const navigate = useNavigate();
-  const { lang } = useLanguage();
+  const { lang, t } = useLanguage();
   const { locationDistrictId } = useSession();
   const trades = tradesData as Trade[];
   const activeLocation = locationDistrictId || 'loc-mh-mumbai';
@@ -50,15 +50,15 @@ const CompareTradesScreen: React.FC = () => {
     <div className="screen-padding" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <button type="button" onClick={() => navigate(-1)} style={{ border: '1px solid var(--color-border)', background: 'var(--color-surface)', borderRadius: '999px', padding: '8px 12px', cursor: 'pointer' }}>
-          ← Back
+          ← {t('btn_back')}
         </button>
       </div>
 
-      <h1 style={{ margin: 0 }}>Compare two trades</h1>
+      <h1 style={{ margin: 0 }}>{t('compare_title')}</h1>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
         <div>
-          <label style={{ display: 'block', fontWeight: 600, marginBottom: '8px' }}>Trade 1</label>
+          <label style={{ display: 'block', fontWeight: 600, marginBottom: '8px' }}>{t('compare_trade_one')}</label>
           <select value={firstId} onChange={(e) => setFirstId(e.target.value)} style={{ width: '100%', height: '48px', borderRadius: '8px', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
             {trades.map((trade) => (
               <option key={trade.id} value={trade.id}>{lang === 'hi' ? trade.name_hi : trade.name_en}</option>
@@ -66,7 +66,7 @@ const CompareTradesScreen: React.FC = () => {
           </select>
         </div>
         <div>
-          <label style={{ display: 'block', fontWeight: 600, marginBottom: '8px' }}>Trade 2</label>
+          <label style={{ display: 'block', fontWeight: 600, marginBottom: '8px' }}>{t('compare_trade_two')}</label>
           <select value={secondId} onChange={(e) => setSecondId(e.target.value)} style={{ width: '100%', height: '48px', borderRadius: '8px', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
             {trades.map((trade) => (
               <option key={trade.id} value={trade.id}>{lang === 'hi' ? trade.name_hi : trade.name_en}</option>
@@ -76,9 +76,9 @@ const CompareTradesScreen: React.FC = () => {
       </div>
 
       <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: '16px', padding: '16px' }}>
-        <div style={{ fontSize: '14px', color: 'var(--color-text-muted)' }}>Difference in placement rate</div>
+        <div style={{ fontSize: '14px', color: 'var(--color-text-muted)' }}>{t('compare_placement_difference')}</div>
         <div style={{ fontSize: '24px', fontWeight: 700, marginTop: '8px' }}>
-          {placementDelta >= 0 ? '+' : ''}{placementDelta.toFixed(1)} percentage points
+          {placementDelta >= 0 ? '+' : ''}{placementDelta.toFixed(1)} {t('compare_percentage_points')}
         </div>
       </div>
 

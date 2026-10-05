@@ -14,7 +14,23 @@ const LanguageContext = createContext<LanguageContextType>({
 });
 
 export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [lang, setLang] = useState<string>('en');
+  const [lang, setLanguage] = useState<string>(() => {
+    try {
+      return localStorage.getItem('careersarthi-language') === 'hi' ? 'hi' : 'en';
+    } catch (error) {
+      console.error('Unable to read saved language preference', error);
+      return 'en';
+    }
+  });
+
+  const setLang = (nextLanguage: string) => {
+    setLanguage(nextLanguage);
+    try {
+      localStorage.setItem('careersarthi-language', nextLanguage === 'hi' ? 'hi' : 'en');
+    } catch (error) {
+      console.error('Unable to save language preference', error);
+    }
+  };
 
   const t: TFunc = (key) => {
     return getStrings(lang)[key] || key;

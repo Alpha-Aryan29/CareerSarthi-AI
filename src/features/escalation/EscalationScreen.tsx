@@ -1,126 +1,239 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ArrowRight, Check, Headphones, ShieldCheck } from 'lucide-react';
 import { useLanguage } from '../../hooks/useLanguage';
+import { useSession } from '../../hooks/useSession';
 import Button from '../../components/ui/Button';
 import ListenButton from '../../components/ui/ListenButton';
-import { createEscalation } from '../../lib/escalations';
+import concernData from '../../data/concern_categories.json';
+import locationsData from '../../data/locations.json';
+import tradesData from '../../data/trades.json';
+import type { ConcernType } from '../../lib/escalations';
+import { createEscalation, type EscalationCase } from '../../lib/escalations';
+import type { Trade } from '../../types';
+
+const CONCERN_VALUES: Record<string, ConcernType> = {
+  earning_potential: 'earning potential',
+  job_security: 'job security',
+  social_status: 'social status',
+  safety: 'safety',
+  cost: 'cost',
+};
 
 const EscalationScreen: React.FC = () => {
   const navigate = useNavigate();
-  const { t } = useLanguage();
+  const { lang, t } = useLanguage();
+  const { locationStateId, locationDistrictId, learnerInterestIds, parentConcernIds } = useSession();
+  const states = locationsData.filter((location) => location.level === 'state');
+  const selectedDistrict = locationsData.find((location) => location.id === locationDistrictId);
+  const initialStateId = locationStateId || selectedDistrict?.parent_id || 'loc-mh';
+  const initialDistrictId =
+    locationDistrictId || locationsData.find((location) => location.parent_id === initialStateId)?.id || '';
+  const trades = tradesData as Trade[];
+  const initialTrade = trades.find((trade) => {
+    const interestsByTrade: Record<string, string[]> = {
+      'trade-001': ['electrical'],
+      'trade-002': ['mechanical'],
+      'trade-003': ['computers'],
+      'trade-004': ['healthcare'],
+    };
+    return learnerInterestIds.some((interest) => interestsByTrade[trade.id]?.includes(interest));
+  });
 
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
-  const [state, setState] = useState('Maharashtra');
-  const [district, setDistrict] = useState('Gadchiroli');
-  const [trade, setTrade] = useState('Electrician');
-  const [concern, setConcern] = useState('safety');
+  const [stateId, setStateId] = useState(initialStateId);
+  const [districtId, setDistrictId] = useState(initialDistrictId);
+  const [tradeId, setTradeId] = useState(initialTrade?.id || trades[0]?.id || '');
+  const [concern, setConcern] = useState(
+    Object.keys(CONCERN_VALUES).find((code) => parentConcernIds.includes(code)) || 'safety'
+  );
   const [time, setTime] = useState('Evening');
-  const [submitted, setSubmitted] = useState(false);
+  const [formError, setFormError] = useState('');
+  const [request, setRequest] = useState<EscalationCase | null>(null);
 
-  const handleSubmit = () => {
-    createEscalation({
-      name,
-      phone,
-      state,
-      district,
-      trade,
-      concern,
-      time,
-      triggerReason: `${concern.charAt(0).toUpperCase() + concern.slice(1)} concern`,
-      summary: `${name || 'Family member'} requested follow-up for the ${trade} pathway and the ${concern} concern.`,
-      priority: concern === 'safety' || concern === 'earning potential' ? 'High' : 'Medium',
-    });
-    setSubmitted(true);
+  const selectedState = states.find((item) => item.id === stateId) || states[0];
+  const districts = locationsData.filter((item) => item.level === 'district' && item.parent_id === selectedState?.id);
+  const selectedDistrictId = districts.some((item) => item.id === districtId) ? districtId : districts[0]?.id || '';
+  const selectedTrade = trades.find((trade) => trade.id === tradeId) || trades[0];
+  const concernLabel = concernData.find((item) => item.code === concern);
+  const concernValue = CONCERN_VALUES[concern] || 'safety';
+
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const normalizedPhone = phone.replace(/\D/g, '');
+    if (!/^[6-9]\d{9}$/.test(normalizedPhone)) {
+      setFormError(t('callback_invalid_phone'));
+      return;
+    }
+    try {
+      const createdRequest = createEscalation({
+        name,
+        phone: normalizedPhone,
+        state: selectedState?.name_en || 'Maharashtra',
+        district: districts.find((item) => item.id === selectedDistrictId)?.name_en || 'Mumbai',
+        trade: selectedTrade?.name_en || 'Electrician',
+        concern: concernValue,
+        time,
+        triggerReason: `${concernValue.charAt(0).toUpperCase()}${concernValue.slice(1)} concern`,
+        summary: `${name || 'Family member'} requested follow-up for the ${selectedTrade?.name_en || 'career'} pathway and the ${concernValue} concern.`,
+        priority: concernValue === 'safety' || concernValue === 'earning potential' ? 'High' : 'Medium',
+      });
+      setRequest(createdRequest);
+      setFormError('');
+    } catch (error) {
+      console.error('Unable to save callback request', error);
+      setFormError(t('callback_save_error'));
+    }
   };
 
-  if (submitted) {
+  if (request) {
+    const requestStages = [
+      { label: t('callback_status_open'), complete: true },
+      { label: t('callback_status_assigned'), complete: false },
+      { label: t('callback_status_scheduled'), complete: false },
+      { label: t('callback_status_completed'), complete: false },
+    ];
+
     return (
-      <div className="screen-padding" style={{ display: 'flex', flexDirection: 'column', height: '100%', alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>
-        <h2 style={{ color: 'var(--color-success)', marginBottom: '16px' }}>{t('escalation_success')}</h2>
-        <Button onClick={() => navigate('/counsellor?status=open')} style={{ marginTop: '32px' }}>
-          View queue
-        </Button>
+      <div className="escalation-confirmation screen-padding">
+        <div className="escalation-confirmation-mark"><Check size={27} /></div>
+        <div className="eyebrow">{t('callback_eyebrow')}</div>
+        <h1>{t('callback_request_received')}</h1>
+        <p>{t('callback_next_steps')}</p>
+        <div className="callback-status-flow" aria-label={t('callback_status_open')}>
+          {requestStages.map((stage, index) => (
+            <div className={`callback-status-step ${stage.complete ? 'complete' : ''}`} key={stage.label}>
+              <span>{stage.complete ? <Check size={15} /> : index + 1}</span>
+              <strong>{stage.label}</strong>
+            </div>
+          ))}
+        </div>
+        <div className="escalation-request-summary">
+          <ShieldCheck size={18} />
+          <div>
+            <strong>{t('callback_summary_title')}</strong>
+            <p>{request.summary}</p>
+            <small>{t('callback_privacy_note')}</small>
+          </div>
+        </div>
+        <Button onClick={() => navigate('/')}>{t('btn_back')}</Button>
       </div>
     );
   }
 
   return (
-    <div className="screen-padding" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <h1 style={{ marginTop: '16px', marginBottom: '24px' }}>{t('escalation_title')}</h1>
+    <div className="page-shell escalation-shell screen-padding">
+      <header className="escalation-heading">
+        <div className="escalation-heading-icon"><Headphones size={23} /></div>
+        <div>
+          <div className="eyebrow">{t('callback_eyebrow')}</div>
+          <h1>{t('escalation_title')}</h1>
+          <p>{t('escalation_desc')}</p>
+        </div>
+      </header>
 
-      <div style={{ backgroundColor: 'var(--color-surface)', padding: '24px', borderRadius: '16px', boxShadow: 'var(--shadow-sm)', marginBottom: '24px' }}>
-        <p style={{ marginBottom: '16px' }}>{t('escalation_desc')}</p>
+      <div className="escalation-intro">
+        <div className="escalation-intro-mark"><ShieldCheck size={19} /></div>
+        <div>
+          <strong>{t('callback_summary_description')}</strong>
+          <p>{t('callback_privacy_note')}</p>
+        </div>
         <ListenButton text={t('escalation_desc')} />
       </div>
 
-      <div style={{ display: 'grid', gap: '16px' }}>
-        <label>
-          <span style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>Name</span>
-          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Full name" style={{ width: '100%', height: '56px', padding: '0 16px', borderRadius: '12px', border: '2px solid var(--color-border)' }} />
-        </label>
-        <label>
-          <span style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>{t('escalation_phone')}</span>
-          <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="10 digit number" style={{ width: '100%', height: '56px', padding: '0 16px', borderRadius: '12px', border: '2px solid var(--color-border)' }} />
-        </label>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px' }}>
+      <form className="escalation-form" onSubmit={handleSubmit}>
+        <div className="escalation-form-heading">
+          <div>
+            <h2>{t('callback_title')}</h2>
+            <p>{t('callback_summary_description')}</p>
+          </div>
+          <span className="required-note">{t('callback_phone')} *</span>
+        </div>
+
+        <div className="escalation-form-grid">
           <label>
-            <span style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>State</span>
-            <select value={state} onChange={(e) => setState(e.target.value)} style={{ width: '100%', height: '56px', padding: '0 12px', borderRadius: '12px', border: '2px solid var(--color-border)' }}>
-              <option>Maharashtra</option>
-              <option>Rajasthan</option>
-              <option>Uttar Pradesh</option>
+            <span>{t('callback_name')}</span>
+            <input value={name} onChange={(event) => setName(event.target.value)} placeholder={t('callback_name')} autoComplete="name" />
+          </label>
+          <label>
+            <span>{t('callback_phone')} *</span>
+            <input
+              type="tel"
+              value={phone}
+              onChange={(event) => { setPhone(event.target.value); setFormError(''); }}
+              placeholder={t('callback_phone_hint')}
+              autoComplete="tel-national"
+              inputMode="numeric"
+              required
+              aria-invalid={Boolean(formError)}
+              aria-describedby={formError ? 'escalation-phone-error' : undefined}
+            />
+            {formError && <small className="form-error" id="escalation-phone-error">{formError}</small>}
+          </label>
+          <label>
+            <span>{t('callback_state')}</span>
+            <select value={selectedState?.id || ''} onChange={(event) => {
+              const nextStateId = event.target.value;
+              setStateId(nextStateId);
+              const nextDistrict = locationsData.find((item) => item.level === 'district' && item.parent_id === nextStateId);
+              setDistrictId(nextDistrict?.id || '');
+            }}>
+              {states.map((item) => <option key={item.id} value={item.id}>{lang === 'hi' ? item.name_hi : item.name_en}</option>)}
             </select>
           </label>
           <label>
-            <span style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>District</span>
-            <select value={district} onChange={(e) => setDistrict(e.target.value)} style={{ width: '100%', height: '56px', padding: '0 12px', borderRadius: '12px', border: '2px solid var(--color-border)' }}>
-              <option>Gadchiroli</option>
-              <option>Mumbai</option>
-              <option>Jaipur</option>
-              <option>Lucknow</option>
+            <span>{t('callback_district')}</span>
+            <select value={selectedDistrictId} onChange={(event) => setDistrictId(event.target.value)}>
+              {districts.map((item) => <option key={item.id} value={item.id}>{lang === 'hi' ? item.name_hi : item.name_en}</option>)}
             </select>
           </label>
           <label>
-            <span style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>Trade</span>
-            <select value={trade} onChange={(e) => setTrade(e.target.value)} style={{ width: '100%', height: '56px', padding: '0 12px', borderRadius: '12px', border: '2px solid var(--color-border)' }}>
-              <option>Electrician</option>
-              <option>COPA</option>
-              <option>Fitter</option>
+            <span>{t('callback_trade')}</span>
+            <select value={selectedTrade?.id || ''} onChange={(event) => setTradeId(event.target.value)}>
+              {trades.map((trade) => <option key={trade.id} value={trade.id}>{lang === 'hi' ? trade.name_hi : trade.name_en}</option>)}
             </select>
           </label>
           <label>
-            <span style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>Concern</span>
-            <select value={concern} onChange={(e) => setConcern(e.target.value)} style={{ width: '100%', height: '56px', padding: '0 12px', borderRadius: '12px', border: '2px solid var(--color-border)' }}>
-              <option value="earning potential">earning potential</option>
-              <option value="job security">job security</option>
-              <option value="social status">social status</option>
-              <option value="safety">safety</option>
-              <option value="cost">cost</option>
+            <span>{t('callback_concern')}</span>
+            <select value={concern} onChange={(event) => setConcern(event.target.value)}>
+              {concernData.filter((item) => CONCERN_VALUES[item.code]).map((item) => (
+                <option key={item.code} value={item.code}>{lang === 'hi' ? item.label_hi : item.label_en}</option>
+              ))}
             </select>
           </label>
         </div>
 
-        <div style={{ marginTop: '16px' }}>
-          <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>{t('escalation_time')}</label>
-          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-            {['Morning', 'Afternoon', 'Evening'].map((slot) => (
+        <fieldset className="escalation-time-select">
+          <legend>{t('callback_time')}</legend>
+          <div>
+            {[
+              { value: 'Morning', label: t('escalation_morning') },
+              { value: 'Afternoon', label: t('escalation_afternoon') },
+              { value: 'Evening', label: t('escalation_evening') },
+            ].map((slot) => (
               <button
-                key={slot}
+                key={slot.value}
                 type="button"
-                onClick={() => setTime(slot)}
-                className={time === slot ? 'chip-button active' : 'chip-button'}
+                onClick={() => setTime(slot.value)}
+                className={time === slot.value ? 'active' : ''}
+                aria-pressed={time === slot.value}
               >
-                {slot}
+                {slot.label}
               </button>
             ))}
           </div>
-        </div>
-      </div>
+        </fieldset>
 
-      <Button onClick={handleSubmit} disabled={!phone || !time} style={{ marginTop: '24px' }}>
-        {t('btn_submit')}
-      </Button>
+        <div className="escalation-summary-preview">
+          <div className="eyebrow">{t('callback_summary_title')}</div>
+          <p>{selectedTrade ? (lang === 'hi' ? selectedTrade.name_hi : selectedTrade.name_en) : ''} · {concernLabel ? (lang === 'hi' ? concernLabel.label_hi : concernLabel.label_en) : ''} · {lang === 'hi' ? districts.find((item) => item.id === selectedDistrictId)?.name_hi : districts.find((item) => item.id === selectedDistrictId)?.name_en}</p>
+        </div>
+
+        <Button type="submit" disabled={!phone.trim()}>
+          {t('callback_submit')} <ArrowRight size={18} />
+        </Button>
+      </form>
     </div>
   );
 };
