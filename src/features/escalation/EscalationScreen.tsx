@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { ArrowRight, Check, Headphones, ShieldCheck } from 'lucide-react';
 import { useLanguage } from '../../hooks/useLanguage';
 import { useSession } from '../../hooks/useSession';
@@ -9,27 +9,45 @@ import concernData from '../../data/concern_categories.json';
 import locationsData from '../../data/locations.json';
 import tradesData from '../../data/trades.json';
 import type { ConcernType } from '../../lib/escalations';
-import { createEscalation, type EscalationCase } from '../../lib/escalations';
+import { createEscalation, readEscalations, type EscalationCase } from '../../lib/escalations';
 import type { Trade } from '../../types';
 
 const CONCERN_VALUES: Record<string, ConcernType> = {
   earning_potential: 'earning potential',
   job_security: 'job security',
   social_status: 'social status',
+  growth_further_education: 'growth/further education',
   safety: 'safety',
+  distance_travel: 'distance/travel',
   cost: 'cost',
+  only_for_failures: 'only for failures',
+  other: 'other',
 };
 
 const EscalationScreen: React.FC = () => {
   const navigate = useNavigate();
+  const routeLocation = useLocation();
   const { lang, t } = useLanguage();
   const { locationStateId, locationDistrictId, learnerInterestIds, parentConcernIds } = useSession();
   const states = locationsData.filter((location) => location.level === 'state');
   const selectedDistrict = locationsData.find((location) => location.id === locationDistrictId);
-  const initialStateId = locationStateId || selectedDistrict?.parent_id || 'loc-mh';
-  const initialDistrictId =
-    locationDistrictId || locationsData.find((location) => location.parent_id === initialStateId)?.id || '';
   const trades = tradesData as Trade[];
+  const prefill = routeLocation.state as { concern?: string; tradeId?: string; districtId?: string; sessionId?: string; summary?: string } | null;
+  const requestedDistrict = locationsData.find((item) => item.id === prefill?.districtId);
+  const requestedConcern = Object.entries(CONCERN_VALUES).find(([, value]) => value === prefill?.concern)?.[0] || prefill?.concern;
+  const requestedCaseId = new URLSearchParams(routeLocation.search).get('case');
+  const updatedCase = requestedCaseId ? readEscalations().find((item) => item.id === requestedCaseId) || null : null;
+  const caseStatusLabelKeys: Record<EscalationCase['status'], Parameters<typeof t>[0]> = {
+    open: 'case_status_open',
+    claimed: 'case_status_claimed',
+    scheduled: 'case_status_scheduled',
+    in_call: 'case_status_in_call',
+    resolved: 'case_status_resolved',
+    unreachable: 'case_status_unreachable',
+  };
+  const initialStateId = requestedDistrict?.parent_id || locationStateId || selectedDistrict?.parent_id || 'loc-mh';
+  const initialDistrictId =
+    requestedDistrict?.id || locationDistrictId || locationsData.find((location) => location.parent_id === initialStateId)?.id || '';
   const initialTrade = trades.find((trade) => {
     const interestsByTrade: Record<string, string[]> = {
       'trade-001': ['electrical'],
@@ -44,9 +62,9 @@ const EscalationScreen: React.FC = () => {
   const [phone, setPhone] = useState('');
   const [stateId, setStateId] = useState(initialStateId);
   const [districtId, setDistrictId] = useState(initialDistrictId);
-  const [tradeId, setTradeId] = useState(initialTrade?.id || trades[0]?.id || '');
+  const [tradeId, setTradeId] = useState(prefill?.tradeId || initialTrade?.id || trades[0]?.id || '');
   const [concern, setConcern] = useState(
-    Object.keys(CONCERN_VALUES).find((code) => parentConcernIds.includes(code)) || 'safety'
+    requestedConcern || Object.keys(CONCERN_VALUES).find((code) => parentConcernIds.includes(code)) || 'safety'
   );
   const [time, setTime] = useState('Evening');
   const [formError, setFormError] = useState('');
@@ -75,8 +93,12 @@ const EscalationScreen: React.FC = () => {
         trade: selectedTrade?.name_en || 'Electrician',
         concern: concernValue,
         time,
+        sessionId: prefill?.sessionId,
         triggerReason: `${concernValue.charAt(0).toUpperCase()}${concernValue.slice(1)} concern`,
-        summary: `${name || 'Family member'} requested follow-up for the ${selectedTrade?.name_en || 'career'} pathway and the ${concernValue} concern.`,
+        summary: prefill?.summary || t('callback_request_summary')
+          .replace('{name}', name || (lang === 'hi' ? 'परिवार के सदस्य' : 'Family member'))
+          .replace('{trade}', selectedTrade ? (lang === 'hi' ? selectedTrade.name_hi : selectedTrade.name_en) : '')
+          .replace('{concern}', concernLabel ? (lang === 'hi' ? concernLabel.label_hi : concernLabel.label_en) : concernValue),
         priority: concernValue === 'safety' || concernValue === 'earning potential' ? 'High' : 'Medium',
       });
       setRequest(createdRequest);
@@ -87,21 +109,29 @@ const EscalationScreen: React.FC = () => {
     }
   };
 
-  if (request) {
+  if (request || updatedCase) {
+    const displayedCase = request || updatedCase!;
+    const statusIndex = displayedCase.status === 'resolved'
+      ? 3
+      : displayedCase.status === 'scheduled' || displayedCase.status === 'in_call'
+        ? 2
+        : displayedCase.status === 'claimed' || displayedCase.status === 'unreachable'
+          ? 1
+          : 0;
     const requestStages = [
-      { label: t('callback_status_open'), complete: true },
-      { label: t('callback_status_assigned'), complete: false },
-      { label: t('callback_status_scheduled'), complete: false },
-      { label: t('callback_status_completed'), complete: false },
+      { label: t('callback_status_open'), complete: statusIndex >= 0 },
+      { label: t('callback_status_assigned'), complete: statusIndex >= 1 },
+      { label: t('callback_status_scheduled'), complete: statusIndex >= 2 },
+      { label: t('callback_status_completed'), complete: statusIndex >= 3 },
     ];
 
     return (
       <div className="escalation-confirmation screen-padding">
         <div className="escalation-confirmation-mark"><Check size={27} /></div>
         <div className="eyebrow">{t('callback_eyebrow')}</div>
-        <h1>{t('callback_request_received')}</h1>
-        <p>{t('callback_next_steps')}</p>
-        <div className="callback-status-flow" aria-label={t('callback_status_open')}>
+        <h1>{updatedCase ? t(caseStatusLabelKeys[updatedCase.status]) : t('callback_request_received')}</h1>
+        <p>{updatedCase ? t('callback_case_status_desc') : t('callback_next_steps')}</p>
+        <div className="callback-status-flow" aria-label={t(caseStatusLabelKeys[displayedCase.status])}>
           {requestStages.map((stage, index) => (
             <div className={`callback-status-step ${stage.complete ? 'complete' : ''}`} key={stage.label}>
               <span>{stage.complete ? <Check size={15} /> : index + 1}</span>
@@ -113,7 +143,8 @@ const EscalationScreen: React.FC = () => {
           <ShieldCheck size={18} />
           <div>
             <strong>{t('callback_summary_title')}</strong>
-            <p>{request.summary}</p>
+            <p>{t('callback_reference')}: <strong>{displayedCase.id}</strong></p>
+            <p>{displayedCase.summary}</p>
             <small>{t('callback_privacy_note')}</small>
           </div>
         </div>
@@ -148,7 +179,6 @@ const EscalationScreen: React.FC = () => {
             <h2>{t('callback_title')}</h2>
             <p>{t('callback_summary_description')}</p>
           </div>
-          <span className="required-note">{t('callback_phone')} *</span>
         </div>
 
         <div className="escalation-form-grid">

@@ -1,14 +1,39 @@
 export type EscalationPriority = 'High' | 'Medium' | 'Low';
 export type EscalationStatus = 'open' | 'claimed' | 'scheduled' | 'in_call' | 'resolved' | 'unreachable';
-export type ConcernType = 'earning potential' | 'job security' | 'social status' | 'safety' | 'cost';
+export type ConcernType =
+  | 'earning potential'
+  | 'job security'
+  | 'social status'
+  | 'growth/further education'
+  | 'safety'
+  | 'distance/travel'
+  | 'cost'
+  | 'only for failures'
+  | 'other';
+
+export interface CounsellingSession {
+  id: string;
+  concern: ConcernType;
+  trade: string;
+  district: string;
+  sentimentBefore: number | null;
+  sentimentAfter: number | null;
+  escalated: boolean;
+  resolved: boolean;
+  createdAt: string;
+  demo: boolean;
+}
 
 export interface EscalationCase {
   id: string;
+  sessionId?: string;
   name?: string;
   phone: string;
   time: string;
   status: EscalationStatus;
   timestamp: string;
+  updatedAt?: string;
+  claimedAt?: string;
   priority: EscalationPriority;
   triggerReason: string;
   summary: string;
@@ -108,34 +133,145 @@ const seedCases: EscalationCase[] = [
   },
 ];
 
-const STORAGE_KEY = 'escalations';
+const STORAGE_KEY = 'careersarthi-shared-store';
 
-export const concernOptions = ['earning potential', 'job security', 'social status', 'safety', 'cost'] as const;
-export const districtOptions = ['Mumbai', 'Gadchiroli', 'Jaipur', 'Lucknow'];
+export const concernOptions = ['earning potential', 'job security', 'social status', 'growth/further education', 'safety', 'distance/travel', 'cost', 'only for failures', 'other'] as const;
 
-export function readEscalations(): EscalationCase[] {
-  if (typeof window === 'undefined') {
-    return [...seedCases];
-  }
+const demoSessions: CounsellingSession[] = Array.from({ length: 30 }, (_, index) => {
+  const locations = [
+    ['Mumbai', 'Maharashtra'], ['Gadchiroli', 'Maharashtra'], ['Jaipur', 'Rajasthan'],
+    ['Lucknow', 'Uttar Pradesh'], ['Pune', 'Maharashtra'], ['Nagpur', 'Maharashtra'],
+    ['Nashik', 'Maharashtra'],
+  ];
+  const concerns = concernOptions.slice(0, 8);
+  const [district] = locations[index % locations.length];
+  const concern = concerns[index % concerns.length];
+  const before = 1.7 + (index % 14) / 10;
+  return {
+    id: `demo-session-${index + 1}`,
+    concern,
+    trade: ['Electrician', 'Fitter', 'COPA', 'Health Sanitary Inspector'][index % 4],
+    district,
+    sentimentBefore: before,
+    sentimentAfter: Math.min(5, before + 0.4 + (index % 5) / 10),
+    escalated: index % 3 === 0,
+    resolved: index % 5 !== 0,
+    createdAt: `2026-10-${String((index % 5) + 1).padStart(2, '0')}T10:00:00.000Z`,
+    demo: true,
+  };
+});
 
+interface SharedStore {
+  cases: EscalationCase[];
+  sessions: CounsellingSession[];
+}
+
+const readSharedStore = (): SharedStore => {
+  const defaults = { cases: [...seedCases], sessions: demoSessions };
+  if (typeof window === 'undefined') return defaults;
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(seedCases));
-      return [...seedCases];
+    if (raw) {
+      const parsed: unknown = JSON.parse(raw);
+      if (!parsed || typeof parsed !== 'object' || !('cases' in parsed) || !('sessions' in parsed)) {
+        throw new Error('Stored counselling store has an invalid shape');
+      }
+      const store = parsed as SharedStore;
+      if (!Array.isArray(store.cases) || !Array.isArray(store.sessions)) {
+        throw new Error('Stored counselling store collections are invalid');
+      }
+      return store;
     }
 
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed) || parsed.length === 0) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(seedCases));
-      return [...seedCases];
+    const legacyCases = localStorage.getItem('escalations');
+    const legacySessions = localStorage.getItem('careersarthi-sessions');
+    const migrated = {
+      cases: legacyCases ? JSON.parse(legacyCases) as EscalationCase[] : defaults.cases,
+      sessions: legacySessions ? JSON.parse(legacySessions) as CounsellingSession[] : defaults.sessions,
+    };
+    if (!Array.isArray(migrated.cases) || !Array.isArray(migrated.sessions)) {
+      throw new Error('Legacy counselling records are invalid');
     }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated));
+    if (legacyCases) localStorage.removeItem('escalations');
+    if (legacySessions) localStorage.removeItem('careersarthi-sessions');
+    return migrated;
+  } catch (error) {
+    console.error('Unable to read shared counselling records', error);
+    return defaults;
+  }
+};
 
-    return parsed.map((item) => ({
+const writeSharedStore = (store: SharedStore) => {
+  if (typeof window !== 'undefined') localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
+};
+
+export function readCounsellingSessions(): CounsellingSession[] {
+  return readSharedStore().sessions;
+}
+
+export function writeCounsellingSession(session: CounsellingSession) {
+  if (typeof window === 'undefined') return;
+  const store = readSharedStore();
+  const sessions = store.sessions;
+  const next = sessions.some((item) => item.id === session.id)
+    ? sessions.map((item) => item.id === session.id ? { ...item, ...session, demo: false } : item)
+    : [{ ...session, demo: false }, ...sessions];
+  writeSharedStore({ ...store, sessions: next });
+}
+
+export function getSessionDistrictInsights(sessions: CounsellingSession[]) {
+  const grouped = new Map<string, CounsellingSession[]>();
+  sessions.forEach((session) => grouped.set(session.district, [...(grouped.get(session.district) || []), session]));
+  return [...grouped.entries()].map(([district, rows]) => {
+    const concernCounts = new Map<string, number>();
+    rows.forEach((row) => concernCounts.set(row.concern, (concernCounts.get(row.concern) || 0) + 1));
+    const dominantConcern = [...concernCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || 'other';
+    const beforeRatings = rows.flatMap((row) => row.sentimentBefore === null ? [] : [row.sentimentBefore]);
+    const afterRatings = rows.flatMap((row) => row.sentimentAfter === null ? [] : [row.sentimentAfter]);
+    const avgBefore = beforeRatings.length ? beforeRatings.reduce((sum, rating) => sum + rating, 0) / beforeRatings.length : null;
+    const avgAfter = afterRatings.length ? afterRatings.reduce((sum, rating) => sum + rating, 0) / afterRatings.length : null;
+    const escalatedRate = rows.filter((row) => row.escalated).length / rows.length;
+    const unresolvedSentiment = avgAfter === null ? 0 : (5 - avgAfter) / 4;
+    const resistance = Math.round((escalatedRate * 70 + unresolvedSentiment * 30) * 100) / 100;
+    return {
+      district,
+      cases: rows.length,
+      avgBefore: avgBefore === null ? null : Number(avgBefore.toFixed(1)),
+      avgAfter: avgAfter === null ? null : Number(avgAfter.toFixed(1)),
+      resistance,
+      dominantConcern,
+      dominantTrade: [...new Set(rows.map((row) => row.trade))]
+        .map((trade) => ({ trade, count: rows.filter((row) => row.trade === trade).length }))
+        .sort((a, b) => b.count - a.count)[0]?.trade || 'Not selected',
+    };
+  });
+}
+
+export function getSessionConcernCounts(sessions: CounsellingSession[]) {
+  return concernOptions.map((concern) => ({
+    name: concern,
+    value: sessions.filter((session) => session.concern === concern).length,
+  }));
+}
+
+export function getResistanceIndex(sessions: CounsellingSession[]) {
+  if (!sessions.length) return 0;
+  const escalatedRate = sessions.filter((session) => session.escalated).length / sessions.length;
+  const afterRatings = sessions.flatMap((session) => session.sentimentAfter === null ? [] : [session.sentimentAfter]);
+  const averageAfter = afterRatings.length
+    ? afterRatings.reduce((sum, rating) => sum + rating, 0) / afterRatings.length
+    : null;
+  return Math.round((escalatedRate * 70 + (averageAfter === null ? 0 : ((5 - averageAfter) / 4) * 30)) * 100) / 100;
+}
+
+export function readEscalations(): EscalationCase[] {
+  try {
+    return readSharedStore().cases.map((item) => ({
       ...item,
       status: item.status || 'open',
       priority: item.priority || 'Medium',
-      concern: item.concern || 'safety',
+      concern: item.concern || 'other',
       sentimentBefore: item.sentimentBefore ?? 2.2,
       sentimentAfter: item.sentimentAfter ?? 3.4,
     }));
@@ -147,7 +283,8 @@ export function readEscalations(): EscalationCase[] {
 
 export function writeEscalations(cases: EscalationCase[]) {
   if (typeof window === 'undefined') return;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(cases));
+  writeSharedStore({ ...readSharedStore(), cases });
+  window.dispatchEvent(new Event('careersarthi-cases-updated'));
 }
 
 export function createEscalation(input: {
@@ -161,7 +298,17 @@ export function createEscalation(input: {
   summary?: string;
   triggerReason?: string;
   priority?: EscalationPriority;
+  sessionId?: string;
+  sentimentBefore?: number;
+  sentimentAfter?: number;
 }): EscalationCase {
+  const previousSession = input.sessionId
+    ? readCounsellingSessions().find((session) => session.id === input.sessionId)
+    : undefined;
+  const sessionSentimentBefore = input.sentimentBefore ?? previousSession?.sentimentBefore ?? null;
+  const sessionSentimentAfter = input.sentimentAfter ?? previousSession?.sentimentAfter ?? null;
+  const sentimentBefore = sessionSentimentBefore ?? 3;
+  const sentimentAfter = sessionSentimentAfter ?? sentimentBefore;
   const record: EscalationCase = {
     id: `case-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`,
     name: input.name || 'New family member',
@@ -169,7 +316,7 @@ export function createEscalation(input: {
     state: input.state || 'Maharashtra',
     district: input.district || 'Mumbai',
     trade: input.trade || 'Electrician',
-    concern: (concernOptions as readonly string[]).includes(input.concern) ? (input.concern as ConcernType) : 'safety',
+    concern: (concernOptions as readonly string[]).includes(input.concern) ? (input.concern as ConcernType) : 'other',
     time: input.time || 'Evening',
     status: 'open',
     timestamp: new Date().toISOString(),
@@ -178,13 +325,26 @@ export function createEscalation(input: {
     summary:
       input.summary ||
       `Family requested a callback to understand the ${input.trade || 'selected'} pathway and the ${input.concern || 'safety'} concern with more guidance.`,
-    sentimentBefore: 2.1,
-    sentimentAfter: 3.3,
+    sentimentBefore,
+    sentimentAfter,
   };
+  record.sessionId = input.sessionId || record.id;
 
   const existing = readEscalations();
   const next = [record, ...existing];
   writeEscalations(next);
+  writeCounsellingSession({
+    id: input.sessionId || record.id,
+    concern: record.concern,
+    trade: record.trade,
+    district: record.district,
+    sentimentBefore: sessionSentimentBefore,
+    sentimentAfter: sessionSentimentAfter,
+    escalated: true,
+    resolved: false,
+    createdAt: record.timestamp,
+    demo: false,
+  });
   return record;
 }
 
@@ -201,15 +361,16 @@ export function getStatusCounts(cases: EscalationCase[]) {
   };
 }
 
-export function getCaseFilters(cases: EscalationCase[], filters: { status?: string; priority?: string; district?: string; trade?: string; concern?: string }) {
+export function getCaseFilters(cases: EscalationCase[], filters: { status?: string; priority?: string; district?: string; trade?: string; concern?: string; caseId?: string }) {
   return cases.filter((item) => {
     const matchesStatus = !filters.status || filters.status === 'all' ? true : item.status === filters.status;
     const matchesPriority = !filters.priority || filters.priority === 'all' ? true : item.priority.toLowerCase() === filters.priority.toLowerCase();
     const matchesDistrict = !filters.district || filters.district === 'all' ? true : item.district.toLowerCase() === filters.district.toLowerCase();
     const matchesTrade = !filters.trade || filters.trade === 'all' ? true : item.trade.toLowerCase() === filters.trade.toLowerCase();
     const matchesConcern = !filters.concern || filters.concern === 'all' ? true : item.concern.toLowerCase() === filters.concern.toLowerCase();
+    const matchesCase = !filters.caseId || item.id === filters.caseId;
 
-    return matchesStatus && matchesPriority && matchesDistrict && matchesTrade && matchesConcern;
+    return matchesStatus && matchesPriority && matchesDistrict && matchesTrade && matchesConcern && matchesCase;
   });
 }
 

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useLanguage } from '../hooks/useLanguage';
 import { useSettings } from '../hooks/useSettings';
-import { Compass, UserRound } from 'lucide-react';
+import { UserRound } from 'lucide-react';
 import type { ChatMessage } from '../features/conversation/engine';
 import OutcomeDataCard from './OutcomeDataCard';
 import CareerLadder from './CareerLadder';
@@ -11,9 +11,10 @@ interface Props {
   message: ChatMessage;
   onFeedback?: (helpful: boolean) => void;
   onEscalate?: () => void;
+  onSuggest?: (question: string) => void;
 }
 
-const ChatBubble: React.FC<Props> = ({ message, onFeedback, onEscalate }) => {
+const ChatBubble: React.FC<Props> = ({ message, onFeedback, onEscalate, onSuggest }) => {
   const isUser = message.sender === 'user';
   const { lang, t } = useLanguage();
   const { readAloud, audioSpeed } = useSettings();
@@ -37,7 +38,7 @@ const ChatBubble: React.FC<Props> = ({ message, onFeedback, onEscalate }) => {
       marginBottom: '24px'
     }}>
       <div className="chat-message-meta">
-        {!isUser && <span className="chat-avatar assistant"><Compass size={15} /></span>}
+        {!isUser && <span className="chat-avatar assistant"><UserRound size={16} /></span>}
         <span>{isUser ? t('chat_user_label') : t('chat_assistant_name')}</span>
         {isUser && <span className="chat-avatar user"><UserRound size={14} /></span>}
       </div>
@@ -59,8 +60,18 @@ const ChatBubble: React.FC<Props> = ({ message, onFeedback, onEscalate }) => {
         <div style={{ marginTop: '8px', marginLeft: '8px', width: '100%', maxWidth: '85%' }}>
           <ListenButton text={message.text} />
 
-          {message.isFallback && (
+          {message.isFallback && !message.requiresEscalation && (
             <div style={{ marginTop: '16px' }}>
+              {message.suggestedQuestions?.map((question) => (
+                <button
+                  type="button"
+                  className="chat-follow-up-question"
+                  key={question}
+                  onClick={() => onSuggest?.(question)}
+                >
+                  {question}
+                </button>
+              ))}
               <button
                 type="button"
                 onClick={onEscalate}
@@ -79,7 +90,7 @@ const ChatBubble: React.FC<Props> = ({ message, onFeedback, onEscalate }) => {
           {message.pathwaySteps && <CareerLadder steps={message.pathwaySteps} />}
 
           <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {feedback === null ? (
+            {message.isAnswer && (feedback === null ? (
               <>
                 <div style={{ fontSize: '14px', color: 'var(--color-text-muted)', fontWeight: 600 }}>{t('chat_did_this_help')}</div>
                 <div style={{ display: 'flex', gap: '8px' }}>
@@ -101,7 +112,7 @@ const ChatBubble: React.FC<Props> = ({ message, onFeedback, onEscalate }) => {
               </>
             ) : (
               <div className="chat-feedback-confirmation">{t('chat_feedback_thanks')}</div>
-            )}
+            ))}
             {(message.requiresEscalation || message.concernCode === 'safety') && (
               <button
                 type="button"

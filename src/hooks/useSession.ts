@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 
 interface SessionState {
   mode: 'learner' | 'parent' | 'both' | null;
@@ -18,30 +19,39 @@ interface SessionState {
   setParentProfile: (concernIds: string[], incomeBracketId: string | null) => void;
   
   sentimentStart: number | null;
-  setSentimentStart: (rating: number) => void;
+  setSentimentStart: (rating: number | null) => void;
   sentimentEnd: number | null;
-  setSentimentEnd: (rating: number) => void;
+  setSentimentEnd: (rating: number | null) => void;
+  activeCounsellingSessionId: string | null;
+  setActiveCounsellingSessionId: (id: string | null) => void;
 }
 
-export const useSession = create<SessionState>((set) => ({
-  mode: null,
-  setMode: (mode) => set({ mode }),
-  
-  locationStateId: null,
-  locationDistrictId: null,
-  setLocation: (stateId, districtId) => set({ locationStateId: stateId, locationDistrictId: districtId }),
+export const useSession = create<SessionState>()(
+  persist(
+    (set) => ({
+      mode: null,
+      setMode: (mode) => set({ mode }),
 
-  learnerEducationId: null,
-  learnerAgeBandId: null,
-  learnerInterestIds: [],
-  setLearnerProfile: (learnerEducationId, learnerAgeBandId, learnerInterestIds) => set({ learnerEducationId, learnerAgeBandId, learnerInterestIds }),
+      locationStateId: null,
+      locationDistrictId: null,
+      setLocation: (stateId, districtId) => set({ locationStateId: stateId, locationDistrictId: districtId }),
 
-  parentConcernIds: [],
-  parentIncomeBracketId: null,
-  setParentProfile: (parentConcernIds, parentIncomeBracketId) => set({ parentConcernIds, parentIncomeBracketId }),
-  
-  sentimentStart: null,
-  setSentimentStart: (rating) => set({ sentimentStart: rating }),
-  sentimentEnd: null,
-  setSentimentEnd: (rating) => set({ sentimentEnd: rating }),
-}));
+      learnerEducationId: null,
+      learnerAgeBandId: null,
+      learnerInterestIds: [],
+      setLearnerProfile: (learnerEducationId, learnerAgeBandId, learnerInterestIds) => set({ learnerEducationId, learnerAgeBandId, learnerInterestIds }),
+
+      parentConcernIds: [],
+      parentIncomeBracketId: null,
+      setParentProfile: (parentConcernIds, parentIncomeBracketId) => set({ parentConcernIds, parentIncomeBracketId }),
+
+      sentimentStart: null,
+      setSentimentStart: (rating) => set({ sentimentStart: rating }),
+      sentimentEnd: null,
+      setSentimentEnd: (rating) => set({ sentimentEnd: rating }),
+      activeCounsellingSessionId: null,
+      setActiveCounsellingSessionId: (id) => set({ activeCounsellingSessionId: id }),
+    }),
+    { name: 'career-sarthi-family-profile' }
+  )
+);

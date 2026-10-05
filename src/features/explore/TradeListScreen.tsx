@@ -5,7 +5,8 @@ import { useSession } from '../../hooks/useSession';
 import tradesData from '../../data/trades.json';
 import outcomeRecordsData from '../../data/outcome_records.json';
 import locationsData from '../../data/locations.json';
-import type { OutcomeRecord, Trade } from '../../types';
+import type { OutcomeRecord, PathwayStep, Trade } from '../../types';
+import pathwayStepsData from '../../data/pathway_steps.json';
 import {
   Activity,
   BriefcaseBusiness,
@@ -25,6 +26,7 @@ const SECTOR_STYLES = {
   Mechanical: { icon: Wrench, tone: 'mechanical', label: 'sector_mechanical' },
   IT: { icon: Cpu, tone: 'technology', label: 'sector_it' },
   Healthcare: { icon: HeartPulse, tone: 'healthcare', label: 'sector_healthcare' },
+  Construction: { icon: Wrench, tone: 'construction', label: 'sector_construction' },
 } as const;
 
 const getOutcome = (tradeId: string, locationId: string | null): OutcomeRecord | undefined => {
@@ -48,9 +50,15 @@ const formatINR = (value: number | null | undefined) =>
 const TradeListScreen: React.FC = () => {
   const navigate = useNavigate();
   const { lang, t } = useLanguage();
-  const { locationDistrictId } = useSession();
+  const { locationDistrictId, setLocation } = useSession();
   const trades = tradesData as Trade[];
   const sectors = ['All Sectors', ...Array.from(new Set(trades.map((trade) => trade.sector)))];
+  const districts = locationsData.filter((item) => item.level === 'district');
+  const activeLocation = locationDistrictId || 'loc-mh-mumbai';
+  const maxLocalSalary = Math.max(
+    1,
+    ...trades.map((trade) => getOutcome(trade.id, activeLocation)?.earnings_p75_inr || 0)
+  );
   const [search, setSearch] = useState('');
   const [sector, setSector] = useState('All Sectors');
 
@@ -77,6 +85,23 @@ const TradeListScreen: React.FC = () => {
         </div>
         <div className="explore-heading-mark"><BriefcaseBusiness size={24} /></div>
       </header>
+
+      <label className="explore-city-selector">
+        <span>{t('explore_city_label')}</span>
+        <select
+          value={activeLocation}
+          onChange={(event) => {
+            const district = districts.find((item) => item.id === event.target.value);
+            if (district?.parent_id) setLocation(district.parent_id, district.id);
+          }}
+        >
+          {districts.map((district) => (
+            <option key={district.id} value={district.id}>
+              {lang === 'hi' ? district.name_hi : district.name_en}
+            </option>
+          ))}
+        </select>
+      </label>
 
       <div className="explore-tools">
         <label className="explore-search">
@@ -112,7 +137,7 @@ const TradeListScreen: React.FC = () => {
               <button
                 type="button"
                 key={item}
-                className={`explore-filter-chip ${sector === item ? 'active' : ''}`}
+                className={`explore-filter-chip ${style?.tone || ''} ${sector === item ? 'active' : ''}`}
                 aria-pressed={sector === item}
                 onClick={() => setSector(item)}
               >
@@ -128,7 +153,9 @@ const TradeListScreen: React.FC = () => {
         <span>{t('explore_results_count').replace('{count}', String(filtered.length))}</span>
         <span className="explore-location-indicator">
           <Activity size={15} />
-          {locationDistrictId ? t('notification_city_ready') : t('explore_location_unset')}
+          {lang === 'hi'
+            ? districts.find((item) => item.id === activeLocation)?.name_hi
+            : districts.find((item) => item.id === activeLocation)?.name_en}
         </span>
       </div>
 
@@ -145,10 +172,11 @@ const TradeListScreen: React.FC = () => {
           {filtered.map((trade) => {
             const style = SECTOR_STYLES[trade.sector as keyof typeof SECTOR_STYLES] || { icon: GraduationCap, tone: 'technology', label: '' as const };
             const Icon = style.icon;
-            const outcome = getOutcome(trade.id, locationDistrictId);
+            const outcome = getOutcome(trade.id, activeLocation);
+            const pathwaySteps = pathwayStepsData.filter((step) => step.trade_id === trade.id) as PathwayStep[];
 
             return (
-              <article className="explore-career-card" key={trade.id}>
+              <article className={`explore-career-card ${style.tone}`} key={trade.id}>
                 <button
                   type="button"
                   className="explore-career-main"
@@ -163,21 +191,35 @@ const TradeListScreen: React.FC = () => {
                     <GraduationCap size={16} />
                     {t('explore_entry_level')}: NSQF {trade.entry_nsqf_level}
                   </div>
+                  <div className="explore-career-ladder" aria-label={`${t('explore_pathway')}: ${pathwaySteps.map((step) => `NSQF ${step.nsqf_level}`).join(' → ') || `NSQF ${trade.entry_nsqf_level}`}`}>
+                    {pathwaySteps.length
+                      ? pathwaySteps.map((step, index) => (
+                        <span key={step.id} className={index === 0 ? 'current' : ''}>NSQF {step.nsqf_level}</span>
+                      ))
+                      : <span className="current">NSQF {trade.entry_nsqf_level}</span>}
+                  </div>
                   <div className="explore-card-metrics">
-                    {outcome ? (
-                      <>
-                        <div>
-                          <span>{t('explore_salary_range')}</span>
-                          <strong>{formatINR(outcome.earnings_p25_inr)}–{formatINR(outcome.earnings_p75_inr)}</strong>
-                        </div>
-                        <div>
-                          <span>{t('explore_placement')}</span>
-                          <strong>{outcome.placement_rate_pct ?? '—'}%</strong>
-                        </div>
-                      </>
-                    ) : (
-                      <div className="explore-no-outcome">{t('explore_location_unset')}</div>
-                    )}
+                    <div>
+                      <span>{t('explore_salary_range')}</span>
+                      <strong>{outcome ? `${formatINR(outcome.earnings_p25_inr)}–${formatINR(outcome.earnings_p75_inr)}` : '—'}</strong>
+                      <span className="explore-salary-track" aria-hidden="true">
+                        {outcome?.earnings_p25_inr != null && outcome.earnings_p75_inr != null && (
+                          <i style={{
+                            left: `${(outcome.earnings_p25_inr / maxLocalSalary) * 100}%`,
+                            width: `${Math.max(2, ((outcome.earnings_p75_inr - outcome.earnings_p25_inr) / maxLocalSalary) * 100)}%`,
+                          }} />
+                        )}
+                      </span>
+                    </div>
+                    <div>
+                      <span>{t('explore_placement')}</span>
+                      <strong>{outcome?.placement_rate_pct == null ? '—' : `${outcome.placement_rate_pct}%`}</strong>
+                    </div>
+                    <div className="explore-source-label">
+                      {outcome
+                        ? `${t('card_source')}: ${outcome.source_name} · ${outcome.source_year}`
+                        : t('explore_no_local_source')}
+                    </div>
                   </div>
                   <div className="explore-pilot-label">{t('explore_pilot_note')}</div>
                 </button>

@@ -2,6 +2,8 @@ import locationsData from '../../data/locations.json';
 import outcomeRecordsData from '../../data/outcome_records.json';
 import tradesData from '../../data/trades.json';
 import pathwayStepsData from '../../data/pathway_steps.json';
+import incomeBracketsData from '../../data/income_brackets.json';
+import educationLevelsData from '../../data/education_levels.json';
 import type { OutcomeRecord, PathwayStep, Trade } from '../../types';
 
 export interface ChatMessage {
@@ -12,167 +14,177 @@ export interface ChatMessage {
   trade?: Trade;
   pathwaySteps?: PathwayStep[];
   isFallback?: boolean;
+  isAnswer?: boolean;
   requiresEscalation?: boolean;
   concernCode?: string;
+  suggestedQuestions?: string[];
 }
 
-const keywords: Record<string, string[]> = {
-  earning_potential: ['earn', 'money', 'salary', 'income', 'pay', 'कमाई', 'वेतन', 'पैसे', 'सैलरी'],
-  job_security: ['job', 'security', 'placement', 'नौकरी', 'रोजगार', 'सुरक्षा'],
-  social_status: ['respect', 'status', 'social', 'standing', 'prestige', 'सम्मान', 'सामाजिक', 'प्रतिष्ठा'],
-  growth_further_education: ['growth', 'study', 'education', 'degree', 'पढ़ाई', 'विकास', 'आगे', 'डिग्री'],
-  safety: ['safe', 'safety', 'risk', 'risky', 'danger', 'सुरक्षा', 'खतरा', 'सुरक्षित'],
-  distance_travel: ['distance', 'travel', 'commute', 'far', 'time', 'दूरी', 'यात्रा', 'आना', 'जाना'],
-  cost: ['cost', 'fee', 'expense', 'money', 'fees', 'लागत', 'फीस', 'खर्च'],
-  only_for_failures: ['fail', 'failed', 'not for failed', 'only for failed', 'फेल', 'असफल', 'रद्द'],
+export interface ChatProfile {
+  locationId: string | null;
+  interestIds: string[];
+  educationId: string | null;
+  incomeBracketId: string | null;
+}
+
+const concernKeywords: Record<string, string[]> = {
+  earning_potential: ['earn', 'earning', 'salary', 'income', 'pay', 'money', 'kamai', 'kamayi', 'paisa', 'tankha', 'कमाई', 'वेतन', 'पैसे', 'तनख्वाह'],
+  job_security: ['job security', 'job', 'placement', 'employment', 'naukri', 'rojgar', 'job milegi', 'नौकरी', 'रोजगार', 'प्लेसमेंट'],
+  social_status: ['respect', 'status', 'social', 'standing', 'prestige', 'izzat', 'samman', 'सम्मान', 'इज्जत', 'प्रतिष्ठा', 'समाज'],
+  growth_further_education: ['growth', 'study', 'education', 'degree', 'promotion', 'career path', 'aage padh', 'padhai', 'पढ़ाई', 'विकास', 'आगे', 'डिग्री', 'पदोन्नति'],
+  safety: ['safe', 'safety', 'risk', 'danger', 'suraksha', 'surakshit', 'khatra', 'सुरक्षा', 'सुरक्षित', 'खतरा'],
+  distance_travel: ['distance', 'travel', 'commute', 'far', 'transport', 'door', 'safar', 'aana jana', 'दूरी', 'यात्रा', 'आना जाना', 'परिवहन'],
+  cost: ['cost', 'fee', 'fees', 'expense', 'afford', 'kharcha', 'lagat', 'फीस', 'खर्च', 'लागत', 'महंगा'],
+  only_for_failures: ['only for failures', 'only for failed', 'failed student', 'fail', 'failure', 'nikamma', 'fail hone', 'फेल', 'असफल', 'नाकाम'],
 };
 
-const getTargetOutcome = (locationId: string | null) => {
-  const targetLocation = locationId || 'loc-rj-jaipur';
-  const targetTrade = 'trade-001';
-
-  const trade = tradesData.find((item) => item.id === targetTrade) as Trade;
-
-  let outcome = outcomeRecordsData.find(
-    (record) => record.trade_id === targetTrade && record.location_id === targetLocation
-  ) as OutcomeRecord;
-
-  if (!outcome) {
-    const district = locationsData.find((location) => location.id === targetLocation);
-    if (district && district.parent_id) {
-      outcome = outcomeRecordsData.find(
-        (record) => record.trade_id === targetTrade && record.location_id === district.parent_id
-      ) as OutcomeRecord;
-    }
-  }
-
-  return { trade, outcome, targetLocation };
+const interestTrades: Record<string, string> = {
+  electrical: 'trade-001',
+  mechanical: 'trade-002',
+  computers: 'trade-003',
+  healthcare: 'trade-004',
 };
 
-export const processMessage = (
-  text: string,
-  locationId: string | null,
-  lang: string
-): Omit<ChatMessage, 'id' | 'sender'> => {
-  const lowerText = text.toLowerCase();
+const money = (value: number | null | undefined) =>
+  value == null ? null : `₹${value.toLocaleString('en-IN')}`;
 
-  if (/(talk to a person|talk to human|call a counsellor|need a person|human help|expert|counsellor)/i.test(text)) {
+const getConcern = (text: string) => {
+  const normalized = text.toLocaleLowerCase('en-IN');
+  const scores = Object.entries(concernKeywords).map(([code, words]) => ({
+    code,
+    score: words.reduce((score, word) => score + (normalized.includes(word) ? Math.max(1, word.split(/\s+/).length) : 0), 0),
+  })).sort((a, b) => b.score - a.score);
+  return scores[0]?.score ? scores[0] : null;
+};
+
+const getTrade = (profile: ChatProfile): Trade => {
+  const preferredId = profile.interestIds.map((interest) => interestTrades[interest]).find(Boolean);
+  return (tradesData.find((trade) => trade.id === preferredId) || tradesData[0]) as Trade;
+};
+
+const getOutcome = (tradeId: string, locationId: string | null): OutcomeRecord | undefined => {
+  const location = locationsData.find((item) => item.id === locationId);
+  const direct = outcomeRecordsData.find((record) =>
+    record.trade_id === tradeId && record.location_id === locationId && record.scope !== 'provider'
+  );
+  const parent = location?.parent_id
+    ? outcomeRecordsData.find((record) => record.trade_id === tradeId && record.location_id === location.parent_id && record.scope === 'state')
+    : undefined;
+  return (direct || parent) as OutcomeRecord | undefined;
+};
+
+export const processMessage = (text: string, profile: ChatProfile, lang: string): Omit<ChatMessage, 'id' | 'sender'> => {
+  const normalized = text.toLocaleLowerCase('en-IN');
+  if (/(talk to (a )?(person|human)|call a counsellor|need (a )?person|human help|expert|counsellor|सलाहकार से बात|इंसान से बात)/i.test(normalized)) {
     return {
       text: lang === 'hi'
-        ? 'मैं आपके लिए एक व्यक्ति से बात करने का विकल्प लेकर आ सकता हूँ। हम इस पर अधिक स्पष्टता और सहायता के लिए कॉलबैक फॉर्म खोलते हैं।'
-        : 'I can connect you to a person for a clearer explanation and support. We can open the callback option for that.',
+        ? 'आपके सवाल के लिए व्यक्ति से बात करना उचित रहेगा। मैंने आपकी चुनी हुई चिंता और प्रोफ़ाइल का सार जोड़ दिया है।'
+        : 'A person may be better placed to help with this question. I have included your selected concern and profile in the summary.',
+      isFallback: true,
       requiresEscalation: true,
-      concernCode: 'other'
+      concernCode: getConcern(text)?.code || 'other',
+      trade: getTrade(profile),
     };
   }
 
-  let matchedConcern: string | null = null;
-
-  for (const [concern, words] of Object.entries(keywords)) {
-    if (words.some((word) => lowerText.includes(word))) {
-      matchedConcern = concern;
-      break;
-    }
-  }
-
-  const { trade, outcome } = getTargetOutcome(locationId);
-
-  const cityNameEn = outcome ? locationsData.find((location) => location.id === outcome.location_id)?.name_en : 'your city';
-  const cityNameHi = outcome ? locationsData.find((location) => location.id === outcome.location_id)?.name_hi : 'आपका शहर';
-  const sampleTextEn = outcome ? `of the ${outcome.sample_size} trainees sampled ` : '';
-  const sampleTextHi = outcome ? `(${outcome.sample_size} प्रशिक्षुओं के नमूने में से) ` : '';
-
-  if (matchedConcern === 'earning_potential') {
+  const match = getConcern(text);
+  if (!match || match.score < 1) {
     return {
       text: lang === 'hi'
-        ? `${cityNameHi} में इलेक्ट्रीशियन के लिए, डेटा दिखाता है कि कमाई ₹${outcome?.earnings_p25_inr} से ₹${outcome?.earnings_p75_inr} प्रति माह के बीच है। सैंपल में औसत कमाई ₹${outcome?.earnings_median_inr} है।`
-        : `In ${cityNameEn}, the Electrician data shows earnings from ₹${outcome?.earnings_p25_inr} to ₹${outcome?.earnings_p75_inr} per month. The median in the sample is ₹${outcome?.earnings_median_inr}.`,
-      outcomeData: outcome,
-      trade,
-      concernCode: matchedConcern
+        ? 'मुझे आपके सवाल की चिंता स्पष्ट रूप से पहचानने में भरोसा नहीं है। आप कमाई, नौकरी की सुरक्षा, सम्मान, आगे की पढ़ाई, सुरक्षा, दूरी, लागत, या इस धारणा के बारे में पूछ सकते हैं कि यह केवल फेल विद्यार्थियों के लिए है।'
+        : 'I am not confident that I understood the concern in your question. You can ask about earnings, job security, respect, further study, safety, travel distance, cost, or the idea that this is only for students who failed.',
+      isFallback: true,
+      concernCode: 'other',
+      trade: getTrade(profile),
+      suggestedQuestions: lang === 'hi'
+        ? ['इस ट्रेड में कितनी कमाई हो सकती है?', 'मेरे जिले में नौकरी मिलने की क्या संभावना है?', 'क्या इससे आगे पढ़ाई कर सकते हैं?']
+        : ['What could someone earn in this trade?', 'What placement data is available for my district?', 'Can I continue studying after this course?'],
     };
   }
 
-  if (matchedConcern === 'job_security') {
-    return {
-      text: lang === 'hi'
-        ? `${cityNameHi} में इलेक्ट्रीशियन के लिए प्लेसमेंट दर ${sampleTextHi}${outcome?.placement_rate_pct}% है।`
-        : `In ${cityNameEn}, the placement rate is ${outcome?.placement_rate_pct}% ${sampleTextEn}for Electrician trainees.`,
-      outcomeData: outcome,
-      trade,
-      concernCode: matchedConcern
-    };
+  const trade = getTrade(profile);
+  const outcome = getOutcome(trade.id, profile.locationId);
+  const district = locationsData.find((item) => item.id === profile.locationId);
+  const city = district ? (lang === 'hi' ? district.name_hi : district.name_en) : (lang === 'hi' ? 'आपका जिला' : 'your district');
+  const tradeName = lang === 'hi' ? trade.name_hi : trade.name_en;
+  const incomeBracket = incomeBracketsData.find((item) => item.code === profile.incomeBracketId);
+  const education = educationLevelsData.find((item) => item.code === profile.educationId);
+  const source = outcome ? `${outcome.source_name}, ${outcome.source_year}` : null;
+  const sourceNote = source
+    ? (lang === 'hi' ? `स्रोत: ${source}। यह पायलट डेटा है, भविष्य की गारंटी नहीं।` : `Source: ${source}. This is pilot data, not a guarantee of future results.`)
+    : (lang === 'hi' ? 'इस ट्रेड और जिले के लिए कोई मिलान वाला परिणाम डेटा उपलब्ध नहीं है।' : 'No matching outcome record is available for this trade and district.');
+  let answer = '';
+  let pathwaySteps: PathwayStep[] | undefined;
+  const code = match.code;
+
+  if (code === 'earning_potential') {
+    const low = money(outcome?.earnings_p25_inr);
+    const high = money(outcome?.earnings_p75_inr);
+    const median = money(outcome?.earnings_median_inr);
+    answer = lang === 'hi'
+      ? `${city} में ${tradeName} के उपलब्ध डेटा में मासिक कमाई ${low && high ? `${low} से ${high}` : 'दर्ज नहीं'} और मध्य मान ${median || 'दर्ज नहीं'} है। ${profile.incomeBracketId && incomeBracket ? `आपकी दर्ज आय श्रेणी: ${incomeBracket.label_hi}।` : ''} ${sourceNote}`
+      : `For ${tradeName} in ${city}, the available monthly earnings range is ${low && high ? `${low}–${high}` : 'not recorded'}, with a median of ${median || 'not recorded'}. ${profile.incomeBracketId && incomeBracket ? `Saved household income bracket: ${incomeBracket.label_en}.` : ''} ${sourceNote}`;
+  } else if (code === 'job_security') {
+    answer = lang === 'hi'
+      ? `${city} में ${tradeName} के उपलब्ध बैच का प्लेसमेंट ${outcome?.placement_rate_pct == null ? 'दर्ज नहीं' : `${outcome.placement_rate_pct}%`} है${outcome?.sample_size ? ` (${outcome.sample_size} प्रशिक्षु)` : ''}। प्लेसमेंट नौकरी की गारंटी नहीं है। ${sourceNote}`
+      : `The recorded placement rate for ${tradeName} in ${city} is ${outcome?.placement_rate_pct == null ? 'not available' : `${outcome.placement_rate_pct}%`}${outcome?.sample_size ? ` (${outcome.sample_size} trainees)` : ''}. Placement is not a job guarantee. ${sourceNote}`;
+  } else if (code === 'growth_further_education') {
+    pathwaySteps = (pathwayStepsData.filter((item) => item.trade_id === trade.id) as PathwayStep[]).sort((a, b) => a.step_order - b.step_order);
+    answer = pathwaySteps.length
+      ? lang === 'hi'
+        ? `${tradeName} में आगे बढ़ने के रास्ते नीचे दिए गए प्रशिक्षण/शिक्षा चरणों में दिखाए गए हैं। उपलब्ध योग्यता: ${education?.label_hi || 'प्रोफ़ाइल में दर्ज नहीं'}। ${sourceNote}`
+        : `Progression options for ${tradeName} are shown in the training and education steps below. Saved learner education: ${education?.label_en || 'not provided'}. ${sourceNote}`
+      : lang === 'hi'
+        ? `${tradeName} के लिए आगे की पढ़ाई के विशिष्ट चरण उपलब्ध डेटा में दर्ज नहीं हैं। ${sourceNote}`
+        : `Specific further-study steps for ${tradeName} are not recorded in the available data. ${sourceNote}`;
+  } else if (code === 'safety') {
+    answer = lang === 'hi'
+      ? `${tradeName} में सुरक्षा का आकलन स्थानीय कार्यस्थल और यात्रा की परिस्थितियों पर निर्भर करता है; उपलब्ध परिणाम डेटा इन बातों की पुष्टि नहीं करता। ${sourceNote}`
+      : `Safety in ${tradeName} depends on the specific workplace and travel conditions; the available outcome data does not verify those conditions. ${sourceNote}`;
+  } else if (code === 'distance_travel') {
+    answer = lang === 'hi'
+      ? `${city} में चयनित जिले के परिणाम नीचे दिए गए हैं, लेकिन उपलब्ध डेटा प्रशिक्षण केंद्र तक की वास्तविक दूरी नहीं बताता। प्रवेश से पहले केंद्र और यात्रा की व्यवस्था की पुष्टि करें। ${sourceNote}`
+      : `The results below are for the selected district, ${city}, but this dataset does not give actual travel distances to training centres. Confirm the centre and commute before enrolling. ${sourceNote}`;
+  } else if (code === 'cost') {
+    answer = lang === 'hi'
+      ? `इस डेटा में प्रशिक्षण शुल्क शामिल नहीं है, इसलिए वास्तविक लागत की तुलना नहीं की जा सकती। ${tradeName} की उपलब्ध कमाई सीमा ${money(outcome?.earnings_p25_inr) || 'दर्ज नहीं'}–${money(outcome?.earnings_p75_inr) || 'दर्ज नहीं'} प्रति माह है। ${sourceNote}`
+      : `Training fees are not included in this dataset, so total cost cannot be compared here. The available ${tradeName} earnings range is ${money(outcome?.earnings_p25_inr) || 'not recorded'}–${money(outcome?.earnings_p75_inr) || 'not recorded'} per month. ${sourceNote}`;
+  } else if (code === 'social_status') {
+    answer = lang === 'hi'
+      ? `उपलब्ध परिणाम डेटा सामाजिक सम्मान को नहीं मापता। यह ${tradeName} के प्लेसमेंट और कमाई के आंकड़े दिखा सकता है, लेकिन समुदाय में सम्मान का अनुभव परिवार और स्थान के अनुसार बदलता है। ${sourceNote}`
+      : `The available outcome data does not measure social respect. It can show placement and earnings figures for ${tradeName}, but how a trade is viewed varies by family and community. ${sourceNote}`;
+  } else {
+    answer = lang === 'hi'
+      ? `कौशल-आधारित प्रशिक्षण केवल परीक्षा में असफल विद्यार्थियों के लिए नहीं है। उपयुक्तता रुचि, योग्यता और उपलब्ध प्रशिक्षण पर निर्भर करती है। ${sourceNote}`
+      : `Skills training is not only for students who failed an exam. Suitability depends on interests, eligibility, and available training. ${sourceNote}`;
   }
 
-  if (matchedConcern === 'social_status') {
-    return {
-      text: lang === 'hi'
-        ? 'इस क्षेत्र में डेटा का मतलब है कि यह ट्रेड चार्ट में दिखाए गए परिणामों के आधार पर वैध विकल्प है। सामाजिक प्रतिष्ठा का अनुभव हर परिवार में अलग हो सकता है, इसलिए यह डेटा उस फैसले के लिए एक आधार देता है।'
-        : 'The data in this area shows this trade as a valid option based on the recorded outcomes. Social respect can vary from family to family, so this information gives a grounded reference for the decision.',
-      outcomeData: outcome,
-      trade,
-      concernCode: matchedConcern
-    };
-  }
+  return { text: answer, outcomeData: outcome, trade, pathwaySteps, concernCode: code, isAnswer: true };
+};
 
-  if (matchedConcern === 'growth_further_education') {
-    const steps = pathwayStepsData.filter((pathway) => pathway.trade_id === trade.id) as PathwayStep[];
-    return {
-      text: lang === 'hi'
-        ? 'हाँ, इस ट्रेड में आगे की पढ़ाई और पदोन्नति के कई रास्ते हैं। डेटा कार्ड और Career Ladder में आप NSQF स्तर और आगे की शिक्षा के विकल्प देख सकते हैं।'
-        : 'Yes, there are clear routes for growth and further education in this trade. The data card and career ladder show the NSQF steps and further study options available.',
-      pathwaySteps: steps.sort((a, b) => a.step_order - b.step_order),
-      concernCode: matchedConcern
-    };
+export const requestGroundedLlmAnswer = async (
+  question: string,
+  context: string,
+  lang: string,
+  signal?: AbortSignal,
+): Promise<string | null> => {
+  const endpoint = import.meta.env.VITE_LLM_PROXY_URL;
+  if (!endpoint) return null;
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      question,
+      context,
+      language: lang,
+      instruction: 'Answer only from context. If context lacks an answer, say so plainly. Do not add facts, estimates, or sources.',
+    }),
+    signal,
+  });
+  if (!response.ok) throw new Error(`LLM proxy returned ${response.status}`);
+  const result: unknown = await response.json();
+  if (!result || typeof result !== 'object' || !('answer' in result) || typeof result.answer !== 'string') {
+    throw new Error('LLM proxy returned an invalid answer payload');
   }
-
-  if (matchedConcern === 'safety') {
-    return {
-      text: lang === 'hi'
-        ? 'सुरक्षा के बारे में विचार आपके लिए महत्वपूर्ण है। इस पर निर्णय लेने से पहले, कार्यस्थान, दूरी और प्रशिक्षण की स्थिति के बारे में स्थानीय डेटा देखें। अगर यह चिंता अभी भी बनी रहती है, तो हम एक व्यक्ति से बात करने का विकल्प दे सकते हैं।'
-        : 'Safety is an important consideration. Before deciding, check the local data on training conditions, travel distance and the work context. If this concern still remains, we can offer a person to talk with you.',
-      requiresEscalation: true,
-      concernCode: matchedConcern
-    };
-  }
-
-  if (matchedConcern === 'distance_travel') {
-    return {
-      text: lang === 'hi'
-        ? 'दूरी और यात्रा की लागत भी निर्णयों में भूमिका निभाती है। डेटा कार्ड में उपलब्ध स्थान और ट्रेनिंग की स्थिति को देखकर, आप यह तुलना कर सकते हैं कि कौन-सा विकल्प आपके लिए सबसे सुलभ है।'
-        : 'Distance and travel also matter in the decision. By checking the location data and training availability in the data card, you can compare which option is more practical for you.',
-      concernCode: matchedConcern
-    };
-  }
-
-  if (matchedConcern === 'cost') {
-    return {
-      text: lang === 'hi'
-        ? 'लागत का सवाल स्पष्ट रूप से देखा जा सकता है। डेटा कार्ड में प्रवेश, ट्रेनिंग और कमाई के आंकड़े दिए गए हैं, ताकि आप लागत और परिणामों के बीच तुलना कर सकें।'
-        : 'The cost question can be reviewed directly. The data card shows the training and earnings figures so you can compare the cost against the likely outcomes.',
-      outcomeData: outcome,
-      trade,
-      concernCode: matchedConcern
-    };
-  }
-
-  if (matchedConcern === 'only_for_failures') {
-    return {
-      text: lang === 'hi'
-        ? 'इस ट्रेड को केवल उन लोगों के लिए नहीं माना जाता है जो फेल हुए हैं। डेटा में देखी गई कमाई और प्लेसमेंट दर बताती है कि यह ट्रेड सीखने, प्रशिक्षण और योग्यतापूर्वक कौशल के आधार पर भी एक विकल्प है।'
-        : 'This trade is not only for students who failed. The earnings and placement figures show that it is also a pathway based on skill, training and readiness, not only on academic setbacks.',
-      outcomeData: outcome,
-      trade,
-      concernCode: matchedConcern
-    };
-  }
-
-  return {
-    text: lang === 'hi'
-      ? 'मेरे पास इस सवाल का सीधा जवाब नहीं है। मैं कमाई, नौकरी की सुरक्षा, आगे की पढ़ाई, और सुरक्षा जैसे विषयों पर डेटा के आधार पर उत्तर दे सकता हूँ। अगर आप चाहें, तो एक व्यक्ति से बात करें।'
-      : 'I do not have a direct answer for that. I can answer using data on earnings, job security, further education, and safety. If you want, we can also connect you with a person.',
-    isFallback: true,
-    requiresEscalation: true,
-    concernCode: 'other'
-  };
+  return result.answer;
 };

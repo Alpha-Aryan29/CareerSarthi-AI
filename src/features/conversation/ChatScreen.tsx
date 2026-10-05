@@ -1,12 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useLanguage } from '../../hooks/useLanguage';
 import { useSession } from '../../hooks/useSession';
-import { processMessage, type ChatMessage } from './engine';
+import { processMessage, requestGroundedLlmAnswer, type ChatMessage } from './engine';
 import ChatBubble from '../../components/ChatBubble';
 import concernData from '../../data/concern_categories.json';
-import { Compass, Headphones, Mic, Send, Sparkles } from 'lucide-react';
+import locationsData from '../../data/locations.json';
+import { Headphones, Mic, Send, Sparkles, UserRound } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import Button from '../../components/ui/Button';
+import { writeCounsellingSession } from '../../lib/escalations';
 
 interface SpeechResultEvent extends Event {
   results: ArrayLike<ArrayLike<{ transcript: string }>>;
@@ -29,24 +31,36 @@ type SpeechRecognitionWindow = Window & {
 
 const ChatScreen: React.FC = () => {
   const { lang, t } = useLanguage();
-  const { locationDistrictId } = useSession();
+  const {
+    locationDistrictId,
+    learnerInterestIds,
+    learnerEducationId,
+    parentIncomeBracketId,
+    sentimentStart,
+    setActiveCounsellingSessionId,
+  } = useSession();
   const navigate = useNavigate();
   const location = useLocation();
 
   const [messages, setMessages] = useState<ChatMessage[]>([{
     id: '1',
     sender: 'assistant',
-    text: lang === 'hi' ? 'नमस्ते! हम आपके सवालों के जवाब देने के लिए यहाँ हैं। आप क्या जानना चाहेंगे?' : 'Hello! We are here to answer your questions. What would you like to know?'
+    text: t('chat_greeting')
   }]);
 
   const [inputValue, setInputValue] = useState('');
   const [notReallyCount, setNotReallyCount] = useState(0);
+  const [unrecognisedCount, setUnrecognisedCount] = useState(0);
+  const [llmError, setLlmError] = useState(false);
+  const [sessionLogError, setSessionLogError] = useState(false);
   const [escalationPrompt, setEscalationPrompt] = useState(false);
   const [isThinking, setIsThinking] = useState(false);
   const [voiceStatus, setVoiceStatus] = useState<'idle' | 'listening' | 'unavailable' | 'error'>('idle');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const responseTimerRef = useRef<number | null>(null);
+  const sessionIdRef = useRef('');
+  const previousLanguageRef = useRef(lang);
 
   const suggestedConcerns = concernData.filter((concern) => concern.code !== 'other');
 
@@ -58,16 +72,72 @@ const ChatScreen: React.FC = () => {
     setInputValue('');
     setVoiceStatus('idle');
     setIsThinking(true);
+    setLlmError(false);
 
     responseTimerRef.current = window.setTimeout(() => {
-      const response = processMessage(text, locationDistrictId, lang);
-      const assistantMsg: ChatMessage = { ...response, id: (Date.now() + 1).toString(), sender: 'assistant' };
-      setMessages(prev => [...prev, assistantMsg]);
-      setIsThinking(false);
+      void (async () => {
+        const response = processMessage(text, {
+          locationId: locationDistrictId,
+          interestIds: learnerInterestIds,
+          educationId: learnerEducationId,
+          incomeBracketId: parentIncomeBracketId,
+        }, lang);
+        let groundedResponse = response;
+        if (!response.isFallback) {
+          try {
+            const answer = await requestGroundedLlmAnswer(text, response.text, lang);
+            if (answer) groundedResponse = { ...response, text: answer };
+          } catch (error) {
+            console.error('Grounded language model request failed', error);
+            setLlmError(true);
+          }
+        }
+        const assistantMsg: ChatMessage = { ...groundedResponse, id: (Date.now() + 1).toString(), sender: 'assistant' };
+        if (!sessionIdRef.current) {
+          sessionIdRef.current = typeof crypto !== 'undefined' && 'randomUUID' in crypto
+            ? crypto.randomUUID()
+            : `session-${Date.now()}`;
+          setActiveCounsellingSessionId(sessionIdRef.current);
+        }
+        const concernNames: Record<string, string> = {
+          earning_potential: 'earning potential',
+          job_security: 'job security',
+          social_status: 'social status',
+          growth_further_education: 'growth/further education',
+          safety: 'safety',
+          distance_travel: 'distance/travel',
+          cost: 'cost',
+          only_for_failures: 'only for failures',
+        };
+        try {
+          writeCounsellingSession({
+            id: sessionIdRef.current,
+            concern: (concernNames[assistantMsg.concernCode || ''] || 'other') as import('../../lib/escalations').ConcernType,
+            trade: assistantMsg.trade?.name_en || 'Not selected',
+            district: locationsData.find((item) => item.id === locationDistrictId)?.name_en || 'Not selected',
+            sentimentBefore: sentimentStart,
+            sentimentAfter: null,
+            escalated: false,
+            resolved: false,
+            createdAt: new Date().toISOString(),
+            demo: false,
+          });
+        } catch (error) {
+          console.error('Unable to save counselling session', error);
+          setSessionLogError(true);
+        }
+        setMessages((prev) => [...prev, assistantMsg]);
+        setIsThinking(false);
 
-      if (assistantMsg.requiresEscalation || assistantMsg.concernCode === 'safety') {
-        setEscalationPrompt(true);
-      }
+        if (assistantMsg.isFallback && assistantMsg.concernCode === 'other' && !assistantMsg.requiresEscalation) {
+          const nextCount = unrecognisedCount + 1;
+          setUnrecognisedCount(nextCount);
+          if (nextCount >= 2) openEscalation(`${t('chat_escalation_unknown_summary')} ${text}`, 'other');
+        }
+        if (assistantMsg.requiresEscalation || assistantMsg.concernCode === 'safety') {
+          setEscalationPrompt(true);
+        }
+      })();
     }, 600);
   };
 
@@ -114,13 +184,80 @@ const ChatScreen: React.FC = () => {
 
   const handleFeedback = (helpful: boolean) => {
     if (!helpful) {
-      setNotReallyCount((count) => count + 1);
+      const nextCount = notReallyCount + 1;
+      setNotReallyCount(nextCount);
+      if (nextCount >= 2) openEscalation(`${t('chat_escalation_feedback_summary')} ${[...messages].reverse().find((message) => message.sender === 'user')?.text || ''}`);
+    } else {
+      setNotReallyCount(0);
     }
+  };
+
+  const openEscalation = (summary?: string, concernOverride?: string) => {
+    const latestAssistant = [...messages].reverse().find((message) => message.sender === 'assistant');
+    const concernNames: Record<string, string> = {
+      earning_potential: 'earning potential',
+      job_security: 'job security',
+      social_status: 'social status',
+      growth_further_education: 'growth/further education',
+      safety: 'safety',
+      distance_travel: 'distance/travel',
+      cost: 'cost',
+      only_for_failures: 'only for failures',
+    };
+    if (sessionIdRef.current) {
+      try {
+        writeCounsellingSession({
+          id: sessionIdRef.current,
+          concern: (concernNames[latestAssistant?.concernCode || ''] || 'other') as import('../../lib/escalations').ConcernType,
+          trade: latestAssistant?.trade?.name_en || 'Not selected',
+          district: locationsData.find((item) => item.id === locationDistrictId)?.name_en || 'Not selected',
+          sentimentBefore: sentimentStart,
+          sentimentAfter: null,
+          escalated: true,
+          resolved: false,
+          createdAt: new Date().toISOString(),
+          demo: false,
+        });
+      } catch (error) {
+        console.error('Unable to mark counselling session escalated', error);
+        setSessionLogError(true);
+      }
+    }
+    navigate('/escalation', {
+      state: {
+        concern: concernOverride || latestAssistant?.concernCode || 'other',
+        tradeId: latestAssistant?.trade?.id,
+        districtId: locationDistrictId,
+        sessionId: sessionIdRef.current,
+        summary: summary || `${t('chat_escalation_default_summary')} ${[...messages].reverse().find((message) => message.sender === 'user')?.text || t('btn_talk_person')}`,
+      },
+    });
   };
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  useEffect(() => {
+    if (previousLanguageRef.current === lang) return;
+    previousLanguageRef.current = lang;
+    let latestQuestion = '';
+    setMessages((current) => current.map((message) => {
+      if (message.sender === 'user') {
+        latestQuestion = message.text;
+        return message;
+      }
+      if (message.id === '1') return { ...message, text: t('chat_greeting') };
+      if (!latestQuestion) return message;
+      const localized = processMessage(latestQuestion, {
+        locationId: locationDistrictId,
+        interestIds: learnerInterestIds,
+        educationId: learnerEducationId,
+        incomeBracketId: parentIncomeBracketId,
+      }, lang);
+      return { ...message, ...localized, id: message.id, sender: 'assistant' };
+    }));
+  }, [lang, t, locationDistrictId, learnerInterestIds, learnerEducationId, parentIncomeBracketId]);
 
   useEffect(() => {
     const prompt = (location.state as { prompt?: unknown } | null)?.prompt;
@@ -144,7 +281,7 @@ const ChatScreen: React.FC = () => {
   return (
     <div className="chat-screen">
       <header className="chat-heading">
-        <div className="chat-heading-mark"><Compass size={22} /></div>
+        <div className="chat-heading-mark"><UserRound size={22} /></div>
         <div>
           <h1>{t('chat_assistant_name')}</h1>
           <span><span className="chat-online-dot" />{t('chat_assistant_type')}</span>
@@ -158,7 +295,8 @@ const ChatScreen: React.FC = () => {
             key={msg.id}
             message={msg}
             onFeedback={handleFeedback}
-            onEscalate={() => navigate('/escalation')}
+            onEscalate={() => openEscalation()}
+            onSuggest={handleSend}
           />
         ))}
         <div ref={messagesEndRef} />
@@ -171,6 +309,9 @@ const ChatScreen: React.FC = () => {
           </div>
         )}
 
+        {llmError && <p className="chat-voice-status error" role="status">{t('chat_llm_error')}</p>}
+        {sessionLogError && <p className="chat-voice-status error" role="status">{t('chat_log_error')}</p>}
+
         {escalationPrompt && (
           <div className="chat-human-support">
             <div className="chat-human-support-icon"><Headphones size={19} /></div>
@@ -178,7 +319,7 @@ const ChatScreen: React.FC = () => {
               <strong>{t('chat_person_title')}</strong>
               <p>{t('chat_person_desc')}</p>
             </div>
-            <Button variant="secondary" onClick={() => navigate('/escalation')} style={{ width: 'auto', minWidth: '180px' }}>
+            <Button variant="secondary" onClick={() => openEscalation()} style={{ width: 'auto', minWidth: '180px' }}>
               {t('btn_talk_person')}
             </Button>
           </div>

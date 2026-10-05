@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowRight,
@@ -20,6 +20,9 @@ import tradesData from '../../data/trades.json';
 import outcomeRecordsData from '../../data/outcome_records.json';
 import locationsData from '../../data/locations.json';
 import concernData from '../../data/concern_categories.json';
+import educationData from '../../data/education_levels.json';
+import interestData from '../../data/interest_options.json';
+import incomeData from '../../data/income_brackets.json';
 import type { OutcomeRecord, Trade } from '../../types';
 
 const INTEREST_TO_TRADE: Record<string, string[]> = {
@@ -35,15 +38,36 @@ const HomeScreen: React.FC = () => {
   const { lang, t } = useLanguage();
   const {
     learnerEducationId,
+    learnerAgeBandId,
     learnerInterestIds,
     parentConcernIds,
+    parentIncomeBracketId,
+    locationStateId,
     locationDistrictId,
+    setLearnerProfile,
+    setParentProfile,
+    setLocation,
+    setMode,
   } = useSession();
+  const [isSetupOpen, setIsSetupOpen] = useState(false);
+  const [setupStep, setSetupStep] = useState(1);
+  const [setupEducation, setSetupEducation] = useState(learnerEducationId || '');
+  const [setupAge, setSetupAge] = useState(learnerAgeBandId || '');
+  const [setupInterests, setSetupInterests] = useState(learnerInterestIds);
+  const [setupState, setSetupState] = useState(locationStateId || 'loc-mh');
+  const [setupDistrict, setSetupDistrict] = useState(locationDistrictId || '');
+  const [setupConcerns, setSetupConcerns] = useState(parentConcernIds);
+  const [setupIncome, setSetupIncome] = useState(parentIncomeBracketId || '');
   const isHindi = lang === 'hi';
   const trades = tradesData as Trade[];
   const concerns = concernData.filter((concern) => concern.code !== 'other');
+  const featuredTopics = [
+    { code: 'earning_potential', title: t('home_talk_money'), tone: 'money' },
+    { code: 'safety', title: t('home_talk_safety'), tone: 'safety' },
+    { code: 'growth_further_education', title: t('home_talk_growth'), tone: 'growth' },
+  ];
 
-  const learnerProfileComplete = Boolean(learnerEducationId && learnerInterestIds.length);
+  const learnerProfileComplete = Boolean(learnerEducationId && learnerAgeBandId && learnerInterestIds.length);
   const completedSteps = [learnerProfileComplete, Boolean(locationDistrictId), Boolean(parentConcernIds.length)].filter(Boolean).length;
   const progress = Math.round((completedSteps / 3) * 100);
 
@@ -83,6 +107,18 @@ const HomeScreen: React.FC = () => {
     { number: '02', title: t('home_action_explore'), description: t('home_action_explore_desc'), href: '/explore', icon: Compass, accent: 'blue' },
     { number: '03', title: t('home_action_chat'), description: t('home_action_chat_desc'), href: '/chat', icon: Headphones, accent: 'amber' },
   ];
+  const setupDistricts = locationsData.filter((item) => item.level === 'district' && item.parent_id === setupState);
+  const currentSetupDistrict = setupDistricts.some((item) => item.id === setupDistrict) ? setupDistrict : setupDistricts[0]?.id || '';
+  const toggleSetupValue = (value: string, values: string[], setValues: (next: string[]) => void) => {
+    setValues(values.includes(value) ? values.filter((item) => item !== value) : [...values, value]);
+  };
+  const saveFamilySetup = () => {
+    setLearnerProfile(setupEducation, setupAge, setupInterests);
+    setLocation(setupState, currentSetupDistrict);
+    setParentProfile(setupConcerns, setupIncome || null);
+    setMode('both');
+    setIsSetupOpen(false);
+  };
 
   const roadmap = [
     { label: t('home_roadmap_profile'), href: '/profile-learner', icon: Users, done: learnerProfileComplete },
@@ -105,18 +141,48 @@ const HomeScreen: React.FC = () => {
           </div>
         </div>
         <div className="home-welcome-art" aria-hidden="true">
-          <div className="home-art-orbit" />
-          <div className="home-art-path">
-            <span className="home-art-person"><Users size={25} /></span>
-            <span className="home-art-arrow"><ChartNoAxesCombined size={30} /></span>
-          </div>
-          <span className="home-art-spark home-art-spark-one" />
-          <span className="home-art-spark home-art-spark-two" />
+          <svg viewBox="0 0 360 250" role="presentation" focusable="false">
+            <path d="M25 209c44-16 90-17 136-4 41 12 103 8 174-16" fill="none" stroke="var(--sector-marigold)" strokeWidth="3" strokeDasharray="5 9" />
+            <circle cx="76" cy="37" r="18" fill="#efb76f" />
+            <path d="M48 74c8-17 22-25 40-23 18 2 28 15 30 34l7 52H43z" fill="var(--sector-terracotta)" />
+            <path d="M53 86c-15 8-21 24-17 42l10 38 19-4-6-37 14-17" fill="none" stroke="#f1bd82" strokeWidth="13" strokeLinecap="round" />
+            <path d="M67 137l-5 44 39 18 8-13-27-19 11-29" fill="var(--sector-indigo)" />
+            <circle cx="193" cy="48" r="16" fill="#d9985a" />
+            <path d="M166 83c7-15 19-22 34-20 17 2 26 13 29 30l5 40h-76z" fill="var(--sector-leaf)" />
+            <path d="M175 91c-13 10-17 24-13 39l8 32 17-4-4-31 13-15" fill="none" stroke="#e3a66f" strokeWidth="12" strokeLinecap="round" />
+            <path d="M178 129l-7 46 37 18 8-13-26-20 10-29" fill="var(--sector-marigold)" />
+            <path d="M104 128h127l-13 12H91z" fill="#6a4938" />
+            <path d="M111 139v47m104-47v47" stroke="#6a4938" strokeWidth="7" strokeLinecap="round" />
+            <path d="M141 99h53a7 7 0 0 1 7 7v31h-67v-31a7 7 0 0 1 7-7" fill="var(--sector-indigo)" />
+            <path d="M139 108h58v23h-58z" fill="#d3e4db" />
+            <path d="M160 139h19l8 5h-35z" fill="var(--sector-marigold)" />
+            <path d="M255 179h42m-35-7v-18h29v18m-18-18v-9m0 0-8-7m8 7 8-7" fill="none" stroke="var(--sector-terracotta)" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
+            <circle cx="295" cy="55" r="3" fill="var(--sector-marigold)" />
+            <path d="M282 79l7 7m0-7-7 7" stroke="var(--sector-terracotta)" strokeWidth="2.5" strokeLinecap="round" />
+          </svg>
         </div>
-        <button type="button" className="home-start-button" onClick={() => navigate('/language')}>
+        <button type="button" className="home-start-button" onClick={() => setIsSetupOpen(true)}>
           {t('home_start')} <ArrowRight size={17} />
         </button>
       </header>
+
+      <section className="home-featured-topics" aria-label={t('home_concerns')}>
+        {featuredTopics.map(({ code, title, tone }) => {
+          const concern = concerns.find((item) => item.code === code);
+          return concern ? (
+            <button
+              type="button"
+              key={code}
+              className={`home-featured-topic ${tone}`}
+              onClick={() => navigate('/chat', { state: { prompt: isHindi ? concern.label_hi : concern.label_en } })}
+            >
+              <span>{title}</span>
+              <strong>{isHindi ? concern.label_hi : concern.label_en}</strong>
+              <ArrowRight size={17} aria-hidden="true" />
+            </button>
+          ) : null;
+        })}
+      </section>
 
       <section className="home-progress-panel" aria-labelledby="home-progress-title">
         <div className="home-progress-copy">
@@ -278,6 +344,88 @@ const HomeScreen: React.FC = () => {
           </button>
         ))}
       </div>
+
+      {isSetupOpen && (
+        <div className="family-setup-backdrop" onClick={(event) => {
+          if (event.target === event.currentTarget) setIsSetupOpen(false);
+        }}>
+          <section className="family-setup-dialog" role="dialog" aria-modal="true" aria-labelledby="family-setup-title">
+            <div className="family-setup-heading">
+              <div>
+                <div className="eyebrow">{t('home_wizard_step').replace('{step}', String(setupStep))}</div>
+                <h2 id="family-setup-title">{t('home_setup_title')}</h2>
+              </div>
+              <button type="button" aria-label={t('nav_close')} onClick={() => setIsSetupOpen(false)}>×</button>
+            </div>
+            {setupStep === 1 && (
+              <div className="family-setup-fields">
+                <label>{t('profile_education_title')}
+                  <select value={setupEducation} onChange={(event) => setSetupEducation(event.target.value)}>
+                    <option value="">{t('home_setup_choose')}</option>
+                    {educationData.map((item) => <option key={item.code} value={item.code}>{isHindi ? item.label_hi : item.label_en}</option>)}
+                  </select>
+                </label>
+                <label>{t('profile_age_title')}
+                  <select value={setupAge} onChange={(event) => setSetupAge(event.target.value)}>
+                    <option value="">{t('home_setup_choose')}</option>
+                    {['15_17', '18_21', '22_25'].map((age) => <option key={age} value={age}>{age.replace('_', '–')}</option>)}
+                  </select>
+                </label>
+                <fieldset>
+                  <legend>{t('profile_interest_title')}</legend>
+                  {interestData.map((item) => (
+                    <label className="family-setup-option" key={item.code}>
+                      <input type="checkbox" checked={setupInterests.includes(item.code)} onChange={() => toggleSetupValue(item.code, setupInterests, setSetupInterests)} />
+                      {isHindi ? item.label_hi : item.label_en}
+                    </label>
+                  ))}
+                </fieldset>
+              </div>
+            )}
+            {setupStep === 2 && (
+              <div className="family-setup-fields">
+                <label>{t('location_state')}
+                  <select value={setupState} onChange={(event) => { setSetupState(event.target.value); setSetupDistrict(''); }}>
+                    {locationsData.filter((item) => item.level === 'state').map((item) => <option key={item.id} value={item.id}>{isHindi ? item.name_hi : item.name_en}</option>)}
+                  </select>
+                </label>
+                <label>{t('location_district')}
+                  <select value={currentSetupDistrict} onChange={(event) => setSetupDistrict(event.target.value)}>
+                    {setupDistricts.map((item) => <option key={item.id} value={item.id}>{isHindi ? item.name_hi : item.name_en}</option>)}
+                  </select>
+                </label>
+              </div>
+            )}
+            {setupStep === 3 && (
+              <div className="family-setup-fields">
+                <fieldset>
+                  <legend>{t('profile_concern_title')}</legend>
+                  {concerns.map((item) => (
+                    <label className="family-setup-option" key={item.code}>
+                      <input type="checkbox" checked={setupConcerns.includes(item.code)} onChange={() => toggleSetupValue(item.code, setupConcerns, setSetupConcerns)} />
+                      {isHindi ? item.label_hi : item.label_en}
+                    </label>
+                  ))}
+                </fieldset>
+                <label>{t('profile_income_title')}
+                  <select value={setupIncome} onChange={(event) => setSetupIncome(event.target.value)}>
+                    <option value="">{t('home_setup_choose')}</option>
+                    {incomeData.map((item) => <option key={item.code} value={item.code}>{isHindi ? item.label_hi : item.label_en}</option>)}
+                  </select>
+                </label>
+              </div>
+            )}
+            <div className="family-setup-actions">
+              <button type="button" className="secondary-button" onClick={() => setupStep === 1 ? setIsSetupOpen(false) : setSetupStep((step) => step - 1)}>
+                {t('btn_back')}
+              </button>
+              {setupStep < 3
+                ? <button type="button" className="primary-button" onClick={() => setSetupStep((step) => step + 1)}>{t('btn_continue')}</button>
+                : <button type="button" className="primary-button" disabled={!setupEducation || !setupAge || !setupInterests.length || !currentSetupDistrict || !setupConcerns.length || !setupIncome} onClick={saveFamilySetup}>{t('home_setup_save')}</button>}
+            </div>
+          </section>
+        </div>
+      )}
     </div>
   );
 };

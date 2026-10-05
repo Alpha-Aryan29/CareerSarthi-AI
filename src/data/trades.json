@@ -42,5 +42,49 @@
     "description_en": "Inspect public health and sanitation conditions, enforce hygiene standards and support disease prevention.",
     "description_hi": "सार्वजनिक स्वास्थ्य और स्वच्छता स्थितियों का निरीक्षण, स्वच्छता मानकों को लागू करना और रोग रोकथाम में सहायता।",
     "is_active": true
+  },
+  {
+    "id": "trade-005",
+    "code": "welder",
+    "name_en": "Welder",
+    "name_hi": "वेल्डर",
+    "sector": "Mechanical",
+    "entry_nsqf_level": 4,
+    "description_en": "Join metal components using welding processes and follow workshop safety procedures.",
+    "description_hi": "वेल्डिंग प्रक्रियाओं से धातु के पुर्जों को जोड़ना और कार्यशाला सुरक्षा नियमों का पालन करना।",
+    "is_active": true
+  },
+  {
+    "id": "trade-006",
+    "code": "mechanic_diesel",
+    "name_en": "Mechanic Diesel",
+    "name_hi": "मैकेनिक डीजल",
+    "sector": "Mechanical",
+    "entry_nsqf_level": 4,
+    "description_en": "Inspect, service and repair diesel engines and related systems.",
+    "description_hi": "डीजल इंजन और संबंधित प्रणालियों की जांच, सर्विस और मरम्मत करना।",
+    "is_active": true
+  },
+  {
+    "id": "trade-007",
+    "code": "plumber",
+    "name_en": "Plumber",
+    "name_hi": "प्लंबर",
+    "sector": "Construction",
+    "entry_nsqf_level": 3,
+    "description_en": "Install and repair water supply, drainage and sanitation systems.",
+    "description_hi": "जल आपूर्ति, जल निकासी और स्वच्छता प्रणालियों की स्थापना और मरम्मत करना।",
+    "is_active": true
+  },
+  {
+    "id": "trade-008",
+    "code": "solar_technician",
+    "name_en": "Solar Technician",
+    "name_hi": "सोलर तकनीशियन",
+    "sector": "Electrical",
+    "entry_nsqf_level": 4,
+    "description_en": "Install and maintain solar photovoltaic systems and electrical components.",
+    "description_hi": "सौर फोटोवोल्टिक प्रणालियों और विद्युत घटकों की स्थापना और रखरखाव करना।",
+    "is_active": true
   }
 ]

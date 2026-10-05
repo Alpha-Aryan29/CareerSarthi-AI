@@ -2,7 +2,9 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { CheckCheck, CircleAlert, HeadphonesIcon, UserRound } from 'lucide-react';
 import Button from '../../components/ui/Button';
-import { getCaseFilters, getStatusCounts, readEscalations, writeEscalations, type EscalationCase } from '../../lib/escalations';
+import { useLanguage } from '../../hooks/useLanguage';
+import concernData from '../../data/concern_categories.json';
+import { concernOptions, getCaseFilters, getStatusCounts, readCounsellingSessions, readEscalations, writeCounsellingSession, writeEscalations, type EscalationCase } from '../../lib/escalations';
 
 const tabs = [
   { key: 'all', label: 'All' },
@@ -14,7 +16,17 @@ const tabs = [
   { key: 'unreachable', label: 'Unreachable' },
 ];
 
+const concernCodeByValue: Record<string, string> = {
+  'earning potential': 'earning_potential',
+  'job security': 'job_security',
+  'social status': 'social_status',
+  'growth/further education': 'growth_further_education',
+  'distance/travel': 'distance_travel',
+  'only for failures': 'only_for_failures',
+};
+
 const CounsellorView: React.FC = () => {
+  const { lang } = useLanguage();
   const [searchParams, setSearchParams] = useSearchParams();
   const [cases, setCases] = useState<EscalationCase[]>([]);
   const [activeTab, setActiveTab] = useState('all');
@@ -24,6 +36,7 @@ const CounsellorView: React.FC = () => {
     district: 'all',
     trade: 'all',
     concern: 'all',
+    caseId: '',
   });
 
   useEffect(() => {
@@ -40,6 +53,7 @@ const CounsellorView: React.FC = () => {
       district: searchParams.get('district') || 'all',
       trade: searchParams.get('trade') || 'all',
       concern: searchParams.get('concern') || 'all',
+      caseId: searchParams.get('case') || '',
     };
 
     setFilters(nextFilters);
@@ -57,9 +71,31 @@ const CounsellorView: React.FC = () => {
   const visibleCases = useMemo(() => getCaseFilters(cases, filters), [cases, filters]);
 
   const updateCase = (id: string, updates: Partial<EscalationCase>) => {
-    const next = cases.map((item) => (item.id === id ? { ...item, ...updates } : item));
+    const now = new Date().toISOString();
+    const current = cases.find((item) => item.id === id);
+    const next = cases.map((item) => (item.id === id ? {
+      ...item,
+      ...updates,
+      updatedAt: now,
+      ...(updates.status === 'claimed' ? { claimedAt: now } : {}),
+    } : item));
     setCases(next);
     writeEscalations(next);
+    if (current) {
+      const linkedSession = readCounsellingSessions().find((session) => session.id === (current.sessionId || current.id));
+      writeCounsellingSession({
+        id: current.sessionId || current.id,
+        concern: current.concern,
+        trade: current.trade,
+        district: current.district,
+        sentimentBefore: linkedSession ? linkedSession.sentimentBefore : current.sentimentBefore,
+        sentimentAfter: linkedSession ? linkedSession.sentimentAfter : current.sentimentAfter,
+        escalated: true,
+        resolved: (updates.status || current.status) === 'resolved',
+        createdAt: current.timestamp,
+        demo: false,
+      });
+    }
   };
 
   const sankey = [
@@ -67,7 +103,7 @@ const CounsellorView: React.FC = () => {
     { label: 'High Priority', value: statusCounts.highPriority, icon: CircleAlert },
     { label: 'Claimed', value: statusCounts.claimed, icon: UserRound },
     { label: 'Scheduled Callbacks', value: statusCounts.scheduled, icon: HeadphonesIcon },
-    { label: 'Resolved Today', value: statusCounts.resolved, icon: CheckCheck },
+    { label: 'Resolved', value: statusCounts.resolved, icon: CheckCheck },
   ];
 
   const applyFilter = (field: string, value: string) => {
@@ -84,7 +120,7 @@ const CounsellorView: React.FC = () => {
   };
 
   const clearFilters = () => {
-    const defaults = { status: 'all', priority: 'all', district: 'all', trade: 'all', concern: 'all' };
+    const defaults = { status: 'all', priority: 'all', district: 'all', trade: 'all', concern: 'all', caseId: '' };
     setFilters(defaults);
     setSearchParams({});
   };
@@ -126,24 +162,19 @@ const CounsellorView: React.FC = () => {
           </select>
           <select value={filters.district} onChange={(e) => applyFilter('district', e.target.value)}>
             <option value="all">All districts</option>
-            <option value="Mumbai">Mumbai</option>
-            <option value="Gadchiroli">Gadchiroli</option>
-            <option value="Jaipur">Jaipur</option>
-            <option value="Lucknow">Lucknow</option>
+            {[...new Set(cases.map((item) => item.district))].sort().map((district) => <option key={district}>{district}</option>)}
           </select>
           <select value={filters.trade} onChange={(e) => applyFilter('trade', e.target.value)}>
             <option value="all">All trades</option>
-            <option value="Electrician">Electrician</option>
-            <option value="COPA">COPA</option>
-            <option value="Fitter">Fitter</option>
+            {[...new Set(cases.map((item) => item.trade))].sort().map((trade) => <option key={trade}>{trade}</option>)}
           </select>
           <select value={filters.concern} onChange={(e) => applyFilter('concern', e.target.value)}>
             <option value="all">All concerns</option>
-            <option value="earning potential">earning potential</option>
-            <option value="job security">job security</option>
-            <option value="social status">social status</option>
-            <option value="safety">safety</option>
-            <option value="cost">cost</option>
+            {concernOptions.map((concern) => {
+              const code = concernCodeByValue[concern] || concern;
+              const label = concernData.find((item) => item.code === code);
+              return <option key={concern} value={concern}>{label ? (lang === 'hi' ? label.label_hi : label.label_en) : concern}</option>;
+            })}
           </select>
           <select value={filters.status} onChange={(e) => applyFilter('status', e.target.value)}>
             <option value="all">All statuses</option>
@@ -167,7 +198,7 @@ const CounsellorView: React.FC = () => {
                 onClick={() => {
                   setActiveTab(tab.key);
                   if (tab.key === 'all') {
-                    setFilters((prev) => ({ ...prev, status: 'all', priority: 'all' }));
+                    setFilters((prev) => ({ ...prev, status: 'all', priority: 'all', caseId: '' }));
                     setSearchParams({});
                     return;
                   }
@@ -196,7 +227,7 @@ const CounsellorView: React.FC = () => {
               <div className="case-top-row">
                 <div>
                   <div className="case-priority">{caseItem.priority} priority</div>
-                  <h3>{caseItem.name ? caseItem.name : 'Family callback'} <span>• {caseItem.status === 'open' ? 'Phone visible after case is claimed' : caseItem.phone}</span></h3>
+                  <h3>{caseItem.name ? caseItem.name : 'Family callback'} <span>• {caseItem.claimedAt || ['claimed', 'scheduled', 'in_call', 'resolved'].includes(caseItem.status) ? caseItem.phone : 'Phone visible after case is claimed'}</span></h3>
                 </div>
                 <span className={`status-pill ${caseItem.status}`}>{caseItem.status.replace('_', ' ')}</span>
               </div>

@@ -33,7 +33,7 @@ const OutcomeDataCard: React.FC<Props> = ({ outcome, trade }) => {
     }}>
       <div style={{ marginBottom: '16px' }}>
         <h4 style={{ margin: 0, fontSize: '16px', color: 'var(--color-text)' }}>
-          {trade ? (lang === 'hi' ? trade.name_hi : trade.name_en) : 'Trade'}
+          {trade ? (lang === 'hi' ? trade.name_hi : trade.name_en) : t('card_trade')}
         </h4>
       </div>
 
@@ -72,7 +72,7 @@ const OutcomeDataCard: React.FC<Props> = ({ outcome, trade }) => {
             backgroundColor: '#E0E7FF', color: 'var(--color-label-benchmark)',
             padding: '4px 12px', borderRadius: '999px', fontSize: '14px', fontWeight: 600
           }}>
-            State-level data
+            {t('card_state_data')}
           </div>
         )}
       </div>
@@ -84,7 +84,7 @@ const OutcomeDataCard: React.FC<Props> = ({ outcome, trade }) => {
             <strong>{t('card_sample')}:</strong> {outcome.sample_size}
             {outcome.sample_size < 100 && (
               <span style={{ color: 'var(--color-warning)', marginLeft: '8px', fontWeight: 600 }}>
-                (Small sample, treat with care)
+                {t('card_small_sample')}
               </span>
             )}
           </div>
@@ -94,9 +94,9 @@ const OutcomeDataCard: React.FC<Props> = ({ outcome, trade }) => {
 
       {showTrustSheet && (
         <div style={{ marginBottom: '16px', border: '1px solid var(--color-border)', borderRadius: '12px', padding: '12px', backgroundColor: '#F9FAFB' }}>
-          <div style={{ fontWeight: 700, marginBottom: '8px' }}>Why should I trust this?</div>
+          <div style={{ fontWeight: 700, marginBottom: '8px' }}>{t('card_trust_question')}</div>
           <div style={{ color: 'var(--color-text-muted)', lineHeight: 1.6 }}>
-            This card shows a labelled demo data point with its source, year, sample size and data-type label. It is not a verified public claim and should be used as a prototype reference only.
+            {t('card_trust_explanation')}
           </div>
         </div>
       )}
@@ -107,7 +107,7 @@ const OutcomeDataCard: React.FC<Props> = ({ outcome, trade }) => {
           onClick={() => setShowTrustSheet((prev) => !prev)}
           style={{ border: '1px solid var(--color-border)', background: 'var(--color-surface)', borderRadius: '999px', padding: '8px 12px', cursor: 'pointer', fontWeight: 600 }}
         >
-          Why trust this?
+          {t('card_trust_question')}
         </button>
         <ListenButton text={`${t('card_pilot_warning')}. ${t('card_source')}: ${outcome.source_name}.`} />
       </div>

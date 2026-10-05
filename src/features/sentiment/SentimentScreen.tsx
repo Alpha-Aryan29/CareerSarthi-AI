@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../../hooks/useLanguage';
 import { useSession } from '../../hooks/useSession';
 import Button from '../../components/ui/Button';
+import { readCounsellingSessions, writeCounsellingSession } from '../../lib/escalations';
 
 interface Props {
   isStart: boolean;
@@ -20,15 +21,43 @@ const faces = [
 const SentimentScreen: React.FC<Props> = ({ isStart, next }) => {
   const navigate = useNavigate();
   const { t } = useLanguage();
-  const { setSentimentStart, setSentimentEnd } = useSession();
+  const {
+    setSentimentStart,
+    setSentimentEnd,
+    activeCounsellingSessionId,
+    setActiveCounsellingSessionId,
+  } = useSession();
   
   const [rating, setRating] = useState<number | null>(null);
 
   const handleNext = () => {
     if (rating !== null) {
-      if (isStart) setSentimentStart(rating);
-      else setSentimentEnd(rating);
+      if (isStart) {
+        setSentimentStart(rating);
+        setSentimentEnd(null);
+      } else {
+        setSentimentEnd(rating);
+        const session = activeCounsellingSessionId
+          ? readCounsellingSessions().find((item) => item.id === activeCounsellingSessionId)
+          : undefined;
+        if (session) {
+          try {
+            writeCounsellingSession({ ...session, sentimentAfter: rating });
+          } catch (error) {
+            console.error('Unable to save post-counselling sentiment', error);
+            window.alert(t('chat_log_error'));
+          }
+        }
+      }
     }
+    setActiveCounsellingSessionId(null);
+    navigate(next);
+  };
+
+  const handleSkip = () => {
+    if (isStart) setSentimentStart(null);
+    setSentimentEnd(null);
+    setActiveCounsellingSessionId(null);
     navigate(next);
   };
 
@@ -62,8 +91,8 @@ const SentimentScreen: React.FC<Props> = ({ isStart, next }) => {
         <Button onClick={handleNext} disabled={rating === null}>
           {t('btn_continue')}
         </Button>
-        <Button variant="secondary" onClick={() => navigate(next)}>
-          Skip
+        <Button variant="secondary" onClick={handleSkip}>
+          {t('sentiment_skip')}
         </Button>
       </div>
     </div>

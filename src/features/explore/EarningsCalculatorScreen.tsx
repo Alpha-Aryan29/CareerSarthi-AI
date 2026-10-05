@@ -39,6 +39,7 @@ const EarningsCalculatorScreen: React.FC = () => {
   const [courseCost, setCourseCost] = useState<number>(20000);
   const [durationMonths, setDurationMonths] = useState<number>(24);
   const [startingPay, setStartingPay] = useState<number>(15000);
+  const [generalAnnualEarnings, setGeneralAnnualEarnings] = useState<number>(180000);
 
   const selectedTrade = useMemo(
     () => trades.find((trade) => trade.id === selectedTradeId) ?? trades[0],
@@ -54,8 +55,8 @@ const EarningsCalculatorScreen: React.FC = () => {
     }
   }, [selectedOutcome]);
 
-  const vocationalNet = Math.max(0, startingPay * 12 * 3 - courseCost);
-  const generalStudyNet = 180000 * 3;
+  const vocationalNet = Math.max(0, startingPay * Math.max(0, 36 - durationMonths) - courseCost);
+  const generalStudyNet = generalAnnualEarnings * 3;
   const difference = vocationalNet - generalStudyNet;
 
   return (
@@ -75,6 +76,11 @@ const EarningsCalculatorScreen: React.FC = () => {
             <option key={trade.id} value={trade.id}>{lang === 'hi' ? trade.name_hi : trade.name_en}</option>
           ))}
         </select>
+        <p style={{ margin: '10px 0 0', color: 'var(--color-text-muted)', fontSize: '13px' }}>
+          {selectedOutcome
+            ? `${t('card_source')}: ${selectedOutcome.source_name} · ${selectedOutcome.source_year}`
+            : t('explore_no_local_outcome')}
+        </p>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
@@ -92,7 +98,7 @@ const EarningsCalculatorScreen: React.FC = () => {
         </div>
         <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: '16px', padding: '16px' }}>
           <label style={{ display: 'block', fontWeight: 600, marginBottom: '8px' }}>{t('calc_general_annual_earnings')}</label>
-          <input type="number" value={180000} disabled style={{ width: '100%', height: '48px', borderRadius: '8px', border: '1px solid var(--color-border)', padding: '0 12px', backgroundColor: '#F3F4F6' }} />
+          <input type="number" min={0} value={generalAnnualEarnings} onChange={(e) => setGeneralAnnualEarnings(Number(e.target.value) || 0)} style={{ width: '100%', height: '48px', borderRadius: '8px', border: '1px solid var(--color-border)', padding: '0 12px' }} />
         </div>
       </div>
 

@@ -78,7 +78,9 @@ const CompareTradesScreen: React.FC = () => {
       <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: '16px', padding: '16px' }}>
         <div style={{ fontSize: '14px', color: 'var(--color-text-muted)' }}>{t('compare_placement_difference')}</div>
         <div style={{ fontSize: '24px', fontWeight: 700, marginTop: '8px' }}>
-          {placementDelta >= 0 ? '+' : ''}{placementDelta.toFixed(1)} {t('compare_percentage_points')}
+          {firstOutcome && secondOutcome
+            ? `${placementDelta >= 0 ? '+' : ''}${placementDelta.toFixed(1)} ${t('compare_percentage_points')}`
+            : t('compare_no_data')}
         </div>
       </div>
 

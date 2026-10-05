@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useCallback, useContext, useState } from 'react';
 import { getStrings, type TFunc } from '../lib/i18n';
 
 interface LanguageContextType {
@@ -32,9 +32,9 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   };
 
-  const t: TFunc = (key) => {
+  const t: TFunc = useCallback((key: Parameters<TFunc>[0]) => {
     return getStrings(lang)[key] || key;
-  };
+  }, [lang]);
 
   return (
     <LanguageContext.Provider value={{ lang, setLang, t }}>

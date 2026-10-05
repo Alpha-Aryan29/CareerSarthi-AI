@@ -1,31 +1,54 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useLanguage } from '../../hooks/useLanguage';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
 import { Activity, ArrowRight, Bot, GaugeCircle, ShieldCheck, TrendingUp, Users } from 'lucide-react';
-import { getConcernCounts, getDistrictInsightRows, getStatusCounts, readEscalations } from '../../lib/escalations';
+import { getResistanceIndex, getSessionConcernCounts, getSessionDistrictInsights, getStatusCounts, readCounsellingSessions, readEscalations } from '../../lib/escalations';
 
-const concernColors = ['#0F766E', '#1D4ED8', '#D97706', '#DC2626', '#6B7280'];
+const concernColors = [
+  'var(--sector-leaf)',
+  'var(--sector-sky)',
+  'var(--sector-marigold)',
+  'var(--sector-terracotta)',
+  'var(--color-text-muted)',
+];
 
 const DashboardView: React.FC = () => {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const cases = readEscalations();
+  const sessions = readCounsellingSessions();
 
   const statusCounts = getStatusCounts(cases);
-  const districtInsights = getDistrictInsightRows(cases);
-  const concernChartData = getConcernCounts(cases);
+  const districtInsights = getSessionDistrictInsights(sessions);
+  const concernChartData = getSessionConcernCounts(sessions);
 
-  const avgBefore = cases.length ? Number((cases.reduce((sum, item) => sum + item.sentimentBefore, 0) / cases.length).toFixed(1)) : 0;
-  const avgAfter = cases.length ? Number((cases.reduce((sum, item) => sum + item.sentimentAfter, 0) / cases.length).toFixed(1)) : 0;
-  const resolutionRate = cases.length ? Math.round((statusCounts.resolved / cases.length) * 100) : 0;
+  const sentimentBefore = sessions.flatMap((item) => item.sentimentBefore === null ? [] : [item.sentimentBefore]);
+  const sentimentAfter = sessions.flatMap((item) => item.sentimentAfter === null ? [] : [item.sentimentAfter]);
+  const avgBefore = sentimentBefore.length ? Number((sentimentBefore.reduce((sum, value) => sum + value, 0) / sentimentBefore.length).toFixed(1)) : null;
+  const avgAfter = sentimentAfter.length ? Number((sentimentAfter.reduce((sum, value) => sum + value, 0) / sentimentAfter.length).toFixed(1)) : null;
+  const resolutionRate = sessions.length ? Math.round((sessions.filter((item) => item.resolved).length / sessions.length) * 100) : 0;
   const activeEscalations = statusCounts.open + statusCounts.claimed + statusCounts.scheduled + statusCounts.inCall;
+  const resistanceIndex = getResistanceIndex(sessions);
+  const primaryDistrict = [...districtInsights].sort((a, b) => b.cases - a.cases)[0];
+  const primaryConcern = [...concernChartData].sort((a, b) => b.value - a.value)[0]?.name || 'other';
+  const primaryTrade = [...new Set(sessions.map((session) => session.trade))]
+    .map((trade) => ({ trade, count: sessions.filter((session) => session.trade === trade).length }))
+    .sort((a, b) => b.count - a.count)[0]?.trade || 'Not selected';
+  const filterParams = (extra: Record<string, string> = {}) => {
+    const params = new URLSearchParams({
+      district: primaryDistrict?.district || 'all',
+      trade: primaryTrade,
+      concern: primaryConcern,
+      ...extra,
+    });
+    return `/counsellor?${params.toString()}`;
+  };
 
-  const resistanceIndex = useMemo(() => {
-    const highestDistrict = districtInsights.sort((a, b) => b.resistance - a.resistance)[0];
-    return highestDistrict ? highestDistrict.resistance : 0;
-  }, [districtInsights]);
+  const demoData = sessions.some((session) => session.demo);
 
   const gaugeStyle = {
-    background: `conic-gradient(#0F766E 0 ${Math.min(100, resistanceIndex)}%, #E5E7EB ${Math.min(100, resistanceIndex)}% 100%)`,
+    background: `conic-gradient(var(--sector-leaf) 0 ${Math.min(100, resistanceIndex)}%, var(--color-border) ${Math.min(100, resistanceIndex)}% 100%)`,
   };
 
   const districtChartData = districtInsights.map((district) => ({
@@ -41,28 +64,28 @@ const DashboardView: React.FC = () => {
 
   const aiInsights = [
     {
-      title: 'Safety watchlist',
-      detail: 'Gadchiroli shows the highest resistance and the most safety-related concern. Focus on travel and workplace reassurance.',
-      action: '/counsellor?district=Gadchiroli&concern=safety',
+      title: `${primaryConcern} · ${primaryDistrict?.district || 'All districts'}`,
+      detail: `${sessions.filter((item) => item.concern === primaryConcern && item.district === primaryDistrict?.district).length} recorded sessions share this concern and district.`,
+      action: filterParams(),
     },
     {
-      title: 'Cost response',
-      detail: 'Reinforce earnings baselines and affordability for families concerned about long-term return.',
-      action: '/counsellor?concern=cost',
+      title: `${primaryTrade} · ${primaryDistrict?.district || 'All districts'}`,
+      detail: `Review the recorded counselling sessions for ${primaryTrade} in this district.`,
+      action: filterParams(),
     },
     {
-      title: 'High priority queue',
-      detail: 'High priority escalations need prompt human follow-up within the next callback window.',
-      action: '/counsellor?priority=high',
+      title: 'Active human follow-up',
+      detail: `${activeEscalations} escalation cases are not yet resolved or unreachable.`,
+      action: filterParams({ status: 'open' }),
     },
   ];
 
   const kpis = [
-    { label: 'Families Counselled', value: String(cases.length), icon: Users, accent: 'teal', action: '/counsellor?status=all' },
-    { label: 'Active Escalations', value: String(activeEscalations), icon: Activity, accent: 'amber', action: '/counsellor?status=open' },
-    { label: 'Avg Sentiment Before / After', value: `${avgBefore} / ${avgAfter}`, icon: TrendingUp, accent: 'blue', action: '/' },
-    { label: 'Resolution Rate', value: `${resolutionRate}%`, icon: ShieldCheck, accent: 'green', action: '/counsellor?status=resolved' },
-    { label: 'Resistance Index', value: `${resistanceIndex}`, icon: GaugeCircle, accent: 'red', action: '/counsellor?district=Gadchiroli' },
+    { label: 'Families Counselled', value: String(sessions.length), icon: Users, accent: 'teal', action: filterParams() },
+    { label: 'Active Escalations', value: String(activeEscalations), icon: Activity, accent: 'amber', action: filterParams({ status: 'open' }) },
+    { label: 'Avg Sentiment Before / After', value: `${avgBefore ?? '—'} / ${avgAfter ?? '—'}`, icon: TrendingUp, accent: 'blue', action: filterParams() },
+    { label: 'Resolution Rate', value: `${resolutionRate}%`, icon: ShieldCheck, accent: 'green', action: filterParams({ status: 'resolved' }) },
+    { label: 'Resistance Index', value: `${resistanceIndex}`, icon: GaugeCircle, accent: 'red', action: filterParams() },
   ];
 
   return (
@@ -75,10 +98,11 @@ const DashboardView: React.FC = () => {
         </div>
         <div className="trust-pill">AI-assisted, Human-supported</div>
       </div>
+      {demoData && <div className="demo-data-label">{t('demo_data')}</div>}
 
       <div className="kpi-grid dashboard-kpi-grid">
         {kpis.map(({ label, value, icon: Icon, accent, action }) => (
-          <button key={label} type="button" className="metric-card" style={{ borderTop: `4px solid var(--${accent}-500)` }} onClick={() => navigate(action)}>
+          <button key={label} type="button" title={label === 'Resistance Index' ? t('dashboard_resistance_formula') : undefined} className="metric-card" style={{ borderTop: `4px solid var(--${accent}-500)` }} onClick={() => navigate(action)}>
             <div className="metric-topline">
               <div className={`metric-icon ${accent}`}><Icon size={18} /></div>
               <span className="metric-label">{label}</span>
@@ -94,13 +118,13 @@ const DashboardView: React.FC = () => {
       <section className="panel">
         <div className="panel-head">
           <h2>Concerns by Category</h2>
-          <button type="button" className="text-button" onClick={() => navigate('/counsellor?concern=safety')}>Safety concern</button>
+          <button type="button" className="text-button" onClick={() => navigate(filterParams({ concern: 'safety' }))}>Safety concern</button>
         </div>
 
-        <div className="chart-wrap">
+        {concernChartData.length ? <div className="chart-wrap">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={concernChartData} margin={{ top: 10, right: 12, left: 0, bottom: 12 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" vertical={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
               <XAxis dataKey="name" tickLine={false} axisLine={false} />
               <YAxis allowDecimals={false} tickLine={false} axisLine={false} />
               <Tooltip />
@@ -111,27 +135,27 @@ const DashboardView: React.FC = () => {
               </Bar>
             </BarChart>
           </ResponsiveContainer>
-        </div>
+        </div> : <div className="dashboard-widget-empty">{t('dashboard_empty_widget')}</div>}
       </section>
 
       <section className="panel">
         <div className="panel-head">
           <h2>District Concern Grid</h2>
-          <button type="button" className="text-button" onClick={() => navigate('/counsellor?status=open')}>Open cases</button>
+          <button type="button" className="text-button" onClick={() => navigate(filterParams({ status: 'open' }))}>Open cases</button>
         </div>
 
-        <div className="district-concern-grid">
+        {districtInsights.length ? <div className="district-concern-grid">
           {districtInsights.map((district) => (
             <button
               key={district.district}
               type="button"
               className="district-concern-card"
-              onClick={() => navigate(`/counsellor?district=${encodeURIComponent(district.district)}`)}
+              onClick={() => navigate(filterParams({ district: district.district, trade: district.dominantTrade, concern: district.dominantConcern }))}
             >
               <div className="district-concern-head">
                 <div>
                   <strong>{district.district}</strong>
-                  <span>{district.state}</span>
+                  <span>{district.cases} sessions</span>
                 </div>
                 <span className={`table-tag ${district.resistance > 70 ? 'high' : district.resistance > 50 ? 'medium' : 'low'}`}>
                   {district.resistance > 70 ? 'High' : district.resistance > 50 ? 'Medium' : 'Low'}
@@ -140,87 +164,95 @@ const DashboardView: React.FC = () => {
               <div className="district-concern-primary">Primary concern: <strong>{district.dominantConcern}</strong></div>
               <div className="district-concern-metrics">
                 <span><small>Cases</small><strong>{district.cases}</strong></span>
-                <span><small>Before</small><strong>{district.avgBefore}</strong></span>
-                <span><small>After</small><strong>{district.avgAfter}</strong></span>
+                <span><small>Before</small><strong>{district.avgBefore ?? '—'}</strong></span>
+                <span><small>After</small><strong>{district.avgAfter ?? '—'}</strong></span>
                 <span><small>Resistance</small><strong>{district.resistance}</strong></span>
               </div>
             </button>
           ))}
-        </div>
+        </div> : <div className="dashboard-widget-empty">{t('dashboard_empty_widget')}</div>}
       </section>
 
       <section className="panel">
         <div className="panel-head">
           <h2>Resistance by District</h2>
-          <button type="button" className="text-button" onClick={() => navigate('/counsellor?district=Gadchiroli')}>Gadchiroli view</button>
+          <button type="button" className="text-button" onClick={() => navigate(filterParams({ district: primaryDistrict?.district || 'all', trade: primaryDistrict?.dominantTrade || primaryTrade, concern: primaryDistrict?.dominantConcern || primaryConcern }))}>{primaryDistrict?.district || 'District view'}</button>
         </div>
-        <div className="chart-wrap">
+        {districtChartData.length ? <div className="chart-wrap">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={districtChartData} margin={{ top: 10, right: 12, left: 0, bottom: 12 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" vertical={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
               <XAxis dataKey="district" tickLine={false} axisLine={false} />
               <YAxis domain={[0, 100]} tickLine={false} axisLine={false} />
               <Tooltip />
-              <Bar dataKey="resistance" fill="#0F766E" radius={[8, 8, 0, 0]} />
+              <Bar dataKey="resistance" radius={[8, 8, 0, 0]}>
+                {districtChartData.map((entry) => (
+                  <Cell key={entry.district} fill={entry.resistance > 70 ? 'var(--sector-terracotta)' : entry.resistance > 45 ? 'var(--sector-marigold)' : 'var(--sector-leaf)'} />
+                ))}
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
-        </div>
+        </div> : <div className="dashboard-widget-empty">{t('dashboard_empty_widget')}</div>}
       </section>
 
       <section className="panel">
         <div className="panel-head">
           <h2>Resistance Index</h2>
-          <button type="button" className="text-button" onClick={() => navigate('/counsellor?district=Gadchiroli')}>View cases</button>
+          <button type="button" title={t('dashboard_resistance_formula')} className="text-button" onClick={() => navigate(filterParams())}>View cases · formula ℹ</button>
         </div>
-        <div className="gauge-wrap">
-          <div className="gauge-ring" style={gaugeStyle}>
-            <div className="gauge-inner">
-              <div className="gauge-value">{resistanceIndex}</div>
-              <div className="gauge-label">/100</div>
+        {sessions.length ? (
+          <div className="gauge-wrap">
+            <div className="gauge-ring" style={gaugeStyle}>
+              <div className="gauge-inner">
+                <div className="gauge-value">{resistanceIndex}</div>
+                <div className="gauge-label">/100</div>
+              </div>
+            </div>
+            <div className="gauge-copy">
+              <strong>What this means</strong>
+              <p>Resistance combines escalation frequency and post-counselling sentiment. This is a demo indicator, not a validated prediction.</p>
             </div>
           </div>
-          <div className="gauge-copy">
-            <strong>What this means</strong>
-            <p>Higher scores show more family resistance due to cost, safety, income, or social trust concerns. The platform routes these families to a human counsellor for a faster callback.</p>
-          </div>
-        </div>
+        ) : <div className="dashboard-widget-empty">{t('dashboard_empty_widget')}</div>}
       </section>
 
       <section className="panel">
         <div className="panel-head">
           <h2>Recommendations</h2>
         </div>
-        <div className="insight-stack">
-          {aiInsights.map((insight) => (
-            <button key={insight.title} type="button" className="insight-item" onClick={() => navigate(insight.action)}>
-              <div className="insight-icon"><Bot size={16} /></div>
-              <div>
-                <div className="insight-title">{insight.title}</div>
-                <div className="insight-detail">{insight.detail}</div>
-              </div>
-            </button>
-          ))}
-        </div>
+        {sessions.length ? (
+          <div className="insight-stack">
+            {aiInsights.map((insight) => (
+              <button key={insight.title} type="button" className="insight-item" onClick={() => navigate(insight.action)}>
+                <div className="insight-icon"><Bot size={16} /></div>
+                <div>
+                  <div className="insight-title">{insight.title}</div>
+                  <div className="insight-detail">{insight.detail}</div>
+                </div>
+              </button>
+            ))}
+          </div>
+        ) : <div className="dashboard-widget-empty">{t('dashboard_empty_widget')}</div>}
       </section>
 
       <section className="panel">
         <div className="panel-head">
           <h2>Sentiment Before vs After</h2>
-          <button type="button" className="text-button" onClick={() => navigate('/counsellor?status=claimed')}>Track follow-up</button>
+          <button type="button" className="text-button" onClick={() => navigate(filterParams({ status: 'claimed' }))}>Track follow-up</button>
         </div>
-        <div className="chart-wrap">
+        {sentimentChartData.length ? <div className="chart-wrap">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={sentimentChartData} margin={{ top: 10, right: 12, left: 0, bottom: 12 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" vertical={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
               <XAxis dataKey="district" tickLine={false} axisLine={false} />
               <YAxis domain={[1, 5]} tickLine={false} axisLine={false} />
               <Tooltip />
               <Legend />
-              <Bar dataKey="before" fill="#D6D3D1" radius={[8, 8, 0, 0]} />
-              <Bar dataKey="after" fill="#15803D" radius={[8, 8, 0, 0]} />
+              <Bar dataKey="before" fill="var(--sector-terracotta)" radius={[8, 8, 0, 0]} />
+              <Bar dataKey="after" fill="var(--sector-leaf)" radius={[8, 8, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
-        </div>
+        </div> : <div className="dashboard-widget-empty">{t('dashboard_empty_widget')}</div>}
       </section>
     </div>
   );
